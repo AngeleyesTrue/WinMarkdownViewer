@@ -51,6 +51,8 @@ func ValidateFile(filePath string) error {
 }
 
 // ReadFile 은 파일 내용을 바이트 슬라이스로 읽는다.
+// ValidateFile()로 사전 검증된 파일 경로를 전제로 하므로,
+// 권한 오류는 ValidateFile과 ReadFile 사이에 권한이 변경된 경쟁 조건 대비용이다.
 func ReadFile(filePath string) ([]byte, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -73,6 +75,7 @@ func RenderPipeline(filePath string) (string, error) {
 	filename := filepath.Base(filePath)
 
 	// 빈 파일 처리 (REQ-O-002)
+	// 공백만 있는 파일도 빈 파일로 취급하여 사용자에게 안내 메시지를 표시한다.
 	if len(strings.TrimSpace(string(content))) == 0 {
 		return viewer.BuildFullHTML(filename, "<p><em>내용이 없습니다.</em></p>")
 	}

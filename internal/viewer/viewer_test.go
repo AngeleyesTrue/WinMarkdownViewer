@@ -69,6 +69,9 @@ func TestNewWithFactoryError(t *testing.T) {
 	if v != nil {
 		t.Fatal("에러 발생 시 뷰어가 nil이어야 한다")
 	}
+	if !strings.Contains(err.Error(), "WMV-E001") {
+		t.Errorf("에러 메시지에 에러 코드(WMV-E001)가 포함되어야 함: %v", err)
+	}
 	if !strings.Contains(err.Error(), "WebView2") {
 		t.Errorf("에러 메시지에 WebView2 설치 안내가 포함되어야 함: %v", err)
 	}
@@ -178,6 +181,10 @@ func TestBuildFullHTMLSpecialCharactersInTitle(t *testing.T) {
 	// 타이틀의 HTML 특수문자가 이스케이프되어야 한다
 	if strings.Contains(result, "<script>alert(1)</script>") {
 		t.Error("타이틀의 스크립트 태그가 이스케이프되지 않음")
+	}
+	// 이스케이프된 형태가 존재하는지 검증
+	if !strings.Contains(result, "&lt;script&gt;") {
+		t.Error("타이틀의 스크립트 태그가 HTML 엔티티로 이스케이프되어야 한다")
 	}
 }
 

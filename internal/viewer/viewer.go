@@ -115,14 +115,20 @@ type templateData struct {
 	Content template.HTML
 }
 
+// viewerTmpl 은 모듈 초기화 시 파싱되는 캐싱된 HTML 템플릿이다.
+// 매 호출마다 재파싱하지 않아 성능이 향상된다.
+var viewerTmpl = template.Must(template.New("viewer").Parse(string(web.ViewerHTML)))
+
 // BuildFullHTML 은 제목과 마크다운 렌더링 결과를 조합하여 완전한 HTML 문서를 생성한다.
 // 임베디드 HTML 템플릿과 CSS를 사용한다.
+//
+// 보안 모델:
+// - Title 필드는 html/template에 의해 자동 이스케이프된다.
+// - Content 필드는 template.HTML 타입으로 goldmark이 생성한 안전한 HTML을 전달한다.
+//   goldmark은 기본적으로 위험한 HTML을 필터링하며, WithUnsafe()는 원본 마크다운 내
+//   HTML 블록(예: <details>, <summary>)을 허용하기 위함이다.
+// - CSP 헤더가 viewer.html에 설정되어 스크립트 실행을 차단한다.
 func BuildFullHTML(title string, renderedContent string) (string, error) {
-	tmpl, err := template.New("viewer").Parse(string(web.ViewerHTML))
-	if err != nil {
-		return "", err
-	}
-
 	data := templateData{
 		Title:   title,
 		CSS:     template.CSS(web.GitHubMarkdownCSS),
@@ -130,7 +136,7 @@ func BuildFullHTML(title string, renderedContent string) (string, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
+	if err := viewerTmpl.Execute(&buf, data); err != nil {
 		return "", err
 	}
 

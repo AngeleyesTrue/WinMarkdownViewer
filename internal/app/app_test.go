@@ -64,7 +64,24 @@ func TestValidateFileIsDirectory(t *testing.T) {
 }
 
 // TestValidateFilePermissionError 파일 읽기 권한 오류를 검증한다 (REQ-S-002).
-// 참고: Windows에서는 파일 권한 테스트가 제한적이므로 존재 여부 검증만 수행한다.
+// Windows에서는 Unix 스타일 파일 권한(chmod 0000)이 지원되지 않으므로 건너뛴다.
+// Unix 환경에서 실행 시 권한 오류를 올바르게 감지하는지 검증한다.
+func TestValidateFilePermissionError(t *testing.T) {
+	if os.Getenv("OS") == "Windows_NT" {
+		t.Skip("Windows에서는 Unix 파일 권한 테스트를 지원하지 않음")
+	}
+	tmpFile := filepath.Join(t.TempDir(), "noperm.md")
+	if err := os.WriteFile(tmpFile, []byte("# Test"), 0000); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+	err := ValidateFile(tmpFile)
+	if err == nil {
+		t.Fatal("권한 오류가 반환되어야 한다")
+	}
+	if !strings.Contains(err.Error(), "권한") {
+		t.Errorf("에러 메시지에 '권한'이 포함되어야 함: %v", err)
+	}
+}
 
 // TestValidateFileSuccess 정상적인 파일 검증을 확인한다.
 func TestValidateFileSuccess(t *testing.T) {
