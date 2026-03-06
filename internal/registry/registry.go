@@ -1,6 +1,8 @@
 // Package registry 는 Windows 레지스트리를 통한 컨텍스트 메뉴 등록/해제를 관리한다.
-// HKCU\Software\Classes\.md\shell\WinMarkdownViewer 경로에
+// HKCU\Software\Classes\SystemFileAssociations\.md\shell\WinMarkdownViewer 경로에
 // "마크다운 뷰어로 열기" 컨텍스트 메뉴를 등록한다.
+// SystemFileAssociations를 사용하면 .md 파일의 기본 프로그램(VS Code 등)과 관계없이
+// 컨텍스트 메뉴가 항상 표시된다.
 // @MX:NOTE: [AUTO] HKLM은 절대 사용하지 않음 (REQ-N-001)
 package registry
 
@@ -11,8 +13,9 @@ import (
 )
 
 // shellKeyPath 는 컨텍스트 메뉴 등록에 사용되는 레지스트리 경로이다.
+// SystemFileAssociations를 사용하여 기본 프로그램과 무관하게 메뉴가 표시되도록 한다.
 // 테스트에서 SetShellKeyPath로 오버라이드할 수 있다.
-var shellKeyPath = `Software\Classes\.md\shell\WinMarkdownViewer`
+var shellKeyPath = `Software\Classes\SystemFileAssociations\.md\shell\WinMarkdownViewer`
 
 // menuLabel 은 컨텍스트 메뉴에 표시되는 텍스트이다.
 const menuLabel = "마크다운 뷰어로 열기"
