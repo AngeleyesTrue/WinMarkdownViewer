@@ -37,13 +37,13 @@ tags: [webview2, goldmark, markdown, mvp]
 ### 1.3 프로젝트 구조
 ```
 WinMarkdownViewer/
-  cmd/winmdview/main.go          # 진입점
-  internal/markdown/renderer.go  # goldmark 렌더링 엔진
-  internal/viewer/viewer.go      # WebView2 윈도우 관리
+  cmd/winmdview/main.go              # 진입점
+  internal/markdown/renderer.go      # goldmark 렌더링 엔진
+  internal/viewer/viewer.go          # WebView2 윈도우 관리
   web/
-    template.html                # HTML 템플릿
-    style.css                    # GitHub 스타일 CSS
-    embed.go                     # go:embed 선언
+    templates/viewer.html            # HTML 템플릿
+    css/github-markdown.css          # GitHub 스타일 CSS
+    embed.go                         # go:embed 선언
   go.mod
   go.sum
 ```
@@ -72,12 +72,13 @@ WinMarkdownViewer/
 
 - **REQ-E-001**: **WHEN** 사용자가 명령줄 인자로 .md 파일 경로를 전달하면, **THEN** 시스템은 해당 파일을 읽어 HTML로 변환하고 WebView2 윈도우에 표시해야 한다.
 - **REQ-E-002**: **WHEN** 사용자가 WebView2 윈도우를 닫으면, **THEN** 시스템은 모든 리소스를 정리하고 프로세스를 종료해야 한다.
-- **REQ-E-003**: **WHEN** 사용자가 인자 없이 프로그램을 실행하면, **THEN** 시스템은 사용법 안내 메시지를 표준 에러에 출력하고 종료해야 한다.
+- **REQ-E-003**: **WHEN** 사용자가 인자 없이 프로그램을 실행하면, **THEN** 시스템은 사용법 안내 메시지를 표시하고 종료해야 한다.
+  - 참고: 릴리스 빌드(`-H windowsgui`)에서는 Windows MessageBox API로 에러 표시, 개발 빌드에서는 stderr 출력.
 
 ### 3.3 Unwanted (금지 행위)
 
 - **REQ-N-001**: 시스템은 외부 네트워크 요청을 **하지 않아야 한다** (모든 리소스는 go:embed로 임베딩).
-- **REQ-N-002**: 시스템은 임시 파일을 파일시스템에 **생성하지 않아야 한다**.
+- **REQ-N-002**: 시스템은 **자체적으로** 임시 파일을 파일시스템에 생성하지 않아야 한다 (WebView2 Runtime이 자체적으로 생성하는 사용자 데이터 폴더는 제외).
 - **REQ-N-003**: 시스템은 사용자에게 관리자 권한을 **요구하지 않아야 한다**.
 
 ### 3.4 State-Driven (상태 기반)
@@ -97,7 +98,7 @@ WinMarkdownViewer/
 
 ### 4.1 Go 모듈 초기화
 
-- 모듈 경로: `github.com/user/WinMarkdownViewer` (또는 프로젝트에 맞는 경로)
+- 모듈 경로: `github.com/AngeleyesTrue/WinMarkdownViewer` (또는 프로젝트에 맞는 경로)
 - `go mod init` 실행 후 의존성 추가:
   - `github.com/jchv/go-webview2`
   - `github.com/yuin/goldmark`
@@ -120,9 +121,9 @@ WinMarkdownViewer/
 
 ### 4.4 HTML 템플릿 및 CSS (`web/`)
 
-- `template.html`: 기본 HTML 구조, `{{.Content}}` 플레이스홀더
-- `style.css`: GitHub Markdown 스타일 CSS (github-markdown-css 기반)
-- `embed.go`: `//go:embed` 디렉티브로 template.html, style.css 임베딩
+- `templates/viewer.html`: 기본 HTML 구조, `{{.Content}}` 플레이스홀더
+- `css/github-markdown.css`: GitHub Markdown 스타일 CSS (github-markdown-css 기반)
+- `embed.go`: `//go:embed` 디렉티브로 templates/viewer.html, css/github-markdown.css 임베딩
 
 ### 4.5 진입점 (`cmd/winmdview/main.go`)
 
@@ -140,6 +141,8 @@ WinMarkdownViewer/
 - 외부 CDN/네트워크 리소스 사용 금지
 - Windows 전용 (Linux/macOS 지원 불필요)
 - 이 SPEC에서 파일 감시(watcher), WebSocket, 시스템 트레이, 컨텍스트 메뉴, 인스톨러는 범위 밖
+- KaTeX/Mermaid 렌더링은 이 SPEC 범위에 포함되지 않음 (후속 SPEC에서 구현)
+- MVP는 라이트 테마만 지원. `prefers-color-scheme` 기반 다크 모드는 후속 SPEC에서 구현
 
 ---
 
@@ -147,13 +150,17 @@ WinMarkdownViewer/
 
 | 요구사항 ID | 구현 파일 | 테스트 시나리오 |
 |-------------|-----------|-----------------|
-| REQ-U-001 | web/style.css, web/template.html | ACC-001 |
+| REQ-U-001 | web/css/github-markdown.css, web/templates/viewer.html | ACC-001 |
 | REQ-U-002 | internal/markdown/renderer.go | ACC-002 |
 | REQ-U-003 | internal/markdown/renderer.go | ACC-002 |
 | REQ-E-001 | cmd/winmdview/main.go, internal/viewer/ | ACC-001 |
 | REQ-E-002 | internal/viewer/viewer.go | ACC-003 |
 | REQ-E-003 | cmd/winmdview/main.go | ACC-004 |
 | REQ-N-001 | web/embed.go | ACC-005 |
+| REQ-N-002 | cmd/winmdview/main.go | ACC-005 |
+| REQ-N-003 | cmd/winmdview/main.go | ACC-012 |
+| REQ-O-001 | internal/viewer/viewer.go | ACC-001 |
+| REQ-O-002 | internal/viewer/viewer.go, internal/markdown/renderer.go | ACC-008 |
 | REQ-S-001 | cmd/winmdview/main.go | ACC-006 |
-| REQ-S-002 | cmd/winmdview/main.go | ACC-006 |
+| REQ-S-002 | cmd/winmdview/main.go | ACC-006-B |
 | REQ-S-003 | internal/viewer/viewer.go | ACC-007 |

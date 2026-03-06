@@ -42,19 +42,19 @@ TDD (Test-Driven Development) - RED-GREEN-REFACTOR 사이클에 따라 구현합
 - 의존성: Task 1
 
 **Task 3: HTML 템플릿 작성**
-- 파일: `web/template.html`
+- 파일: `web/templates/viewer.html`
 - 작업: 기본 HTML5 구조, `{{.Content}}` 플레이스홀더, CSS 인라인 삽입 구조
 - 의존성: Task 2
 
 **Task 4: GitHub 스타일 CSS 작성**
-- 파일: `web/style.css`
+- 파일: `web/css/github-markdown.css`
 - 작업: GitHub Markdown 렌더링 스타일 CSS 작성 (github-markdown-css 기반)
 - 코드 블록 구문 강조용 chroma CSS 포함
 - 의존성: Task 2
 
 **Task 5: go:embed 설정**
 - 파일: `web/embed.go`
-- 작업: `//go:embed template.html style.css` 디렉티브 선언, 패키지 레벨 변수 노출
+- 작업: `//go:embed templates/viewer.html css/github-markdown.css` 디렉티브 선언, 패키지 레벨 변수 노출
 - 의존성: Task 3, Task 4
 
 ### Secondary Goal: Markdown 렌더링 엔진
@@ -87,12 +87,13 @@ TDD (Test-Driven Development) - RED-GREEN-REFACTOR 사이클에 따라 구현합
   - `Run() error` 윈도우 이벤트 루프 실행
   - WebView2 Runtime 미설치 시 에러 처리
 - 의존성: Task 1
-- 참고: WebView2는 GUI 컴포넌트로 단위 테스트 대신 빌드 검증 및 수동 테스트
+- 참고: WebView2는 GUI 컴포넌트로 전체 렌더링의 단위 테스트는 불가
+- 테스트 전략: interface 기반 설계로 viewer.go의 초기화 로직, 파라미터 검증을 mock 기반 단위 테스트로 검증. 실제 WebView2 렌더링은 빌드 검증 및 수동 테스트
 
 **Task 10: CLI 진입점 테스트 작성 (RED)**
 - 파일: `cmd/winmdview/main_test.go`
 - 작업: 인자 파싱 로직, 파일 검증 로직 테스트 (WebView2 의존 부분 제외)
-- 의존성: Task 6
+- 의존성: Task 1
 
 **Task 11: CLI 진입점 구현 (GREEN)**
 - 파일: `cmd/winmdview/main.go`
@@ -115,8 +116,9 @@ TDD (Test-Driven Development) - RED-GREEN-REFACTOR 사이클에 따라 구현합
 | 파일 | 작업 유형 | 복잡도 | 관련 Task |
 |------|-----------|--------|-----------|
 | `go.mod` | 신규 생성 | 낮음 | Task 1 |
-| `web/template.html` | 신규 생성 | 낮음 | Task 3 |
-| `web/style.css` | 신규 생성 | 중간 | Task 4 |
+| `go.sum` | 자동 생성 | - | Task 1 |
+| `web/templates/viewer.html` | 신규 생성 | 낮음 | Task 3 |
+| `web/css/github-markdown.css` | 신규 생성 | 중간 | Task 4 |
 | `web/embed.go` | 신규 생성 | 낮음 | Task 5 |
 | `internal/markdown/renderer.go` | 신규 생성 | 중간 | Task 7, 8 |
 | `internal/markdown/renderer_test.go` | 신규 생성 | 중간 | Task 6 |
@@ -124,7 +126,7 @@ TDD (Test-Driven Development) - RED-GREEN-REFACTOR 사이클에 따라 구현합
 | `cmd/winmdview/main.go` | 신규 생성 | 중간 | Task 11 |
 | `cmd/winmdview/main_test.go` | 신규 생성 | 중간 | Task 10 |
 
-**총 파일 수**: 9개 (신규 생성)
+**총 파일 수**: 10개 (9개 신규 생성 + 1개 자동 생성)
 **전체 복잡도**: 중간
 
 ---
@@ -144,7 +146,7 @@ TDD (Test-Driven Development) - RED-GREEN-REFACTOR 사이클에 따라 구현합
                           HTML 문자열
                                   |
                                   v
-                    template.html + style.css
+               viewer.html + github-markdown.css
                     (go:embed, text/template)
                                   |
                                   v
@@ -199,14 +201,15 @@ goldmark.New(
 
 | 기능 | 예정 SPEC |
 |------|-----------|
-| 파일 감시 / 실시간 미리보기 | SPEC-002 |
-| WebSocket 서버 | SPEC-002 |
-| 컨텍스트 메뉴 등록 | SPEC-003 |
-| 시스템 트레이 | SPEC-003 |
-| 단일 인스턴스 관리 | SPEC-003 |
-| MSI 인스톨러 | SPEC-004 |
-| 사용자 설정/환경설정 | SPEC-005 |
-| KaTeX, Mermaid 지원 | 후속 SPEC |
+| 파일 감시 / 실시간 미리보기 | SPEC-WATCH-001 |
+| WebSocket 서버 | SPEC-WATCH-001 |
+| 컨텍스트 메뉴 등록 | SPEC-WIN-001 |
+| 시스템 트레이 | SPEC-WIN-001 |
+| 단일 인스턴스 관리 | SPEC-WIN-001 |
+| MSI 인스톨러 | SPEC-INSTALL-001 |
+| 사용자 설정/환경설정 | SPEC-CONFIG-001 |
+| KaTeX, Mermaid 지원 | SPEC-RENDER-001 |
+| 다크 모드 지원 | SPEC-THEME-001 |
 
 ---
 

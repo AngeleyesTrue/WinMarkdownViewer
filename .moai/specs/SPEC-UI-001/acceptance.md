@@ -86,6 +86,8 @@ Then 표준 에러에 "파일을 찾을 수 없습니다: nonexistent.md" 메시
   And 프로세스가 exit code 1로 종료된다
 ```
 
+### ACC-006-B: 파일 읽기 권한 없음 시 에러 메시지
+
 ```gherkin
 Given "readonly.md" 파일에 읽기 권한이 없다
 When 사용자가 "winmdview.exe readonly.md"를 실행한다
@@ -135,6 +137,19 @@ When 사용자가 "winmdview.exe '내 문서/readme.md'"를 실행한다
 Then 파일이 정상적으로 읽히고 렌더링된다
 ```
 
+### ACC-010-B: Windows 특수 경로 처리
+
+```gherkin
+Given 다음 경로 유형의 Markdown 파일이 존재한다:
+  | 경로 유형 | 예시 |
+  | 드라이브 절대 경로 | `D:\docs\readme.md` |
+  | UNC 경로 | `\\server\share\readme.md` |
+  | 긴 경로 (260+ chars) | `C:\a\very\long\...\path\readme.md` |
+When 사용자가 해당 경로로 프로그램을 실행한다
+Then 파일이 정상적으로 읽히고 렌더링된다
+  And 긴 경로의 경우 Windows long path API를 통해 처리된다
+```
+
 ### ACC-011: Markdown이 아닌 확장자 파일
 
 ```gherkin
@@ -142,6 +157,15 @@ Given "readme.txt" 파일이 Markdown 형식의 내용을 포함하고 있다
 When 사용자가 "winmdview.exe readme.txt"를 실행한다
 Then 파일 내용이 Markdown으로 파싱되어 렌더링된다
   And 확장자에 관계없이 내용을 Markdown으로 처리한다
+```
+
+### ACC-011-B: 바이너리 파일 처리
+
+```gherkin
+Given "image.png" 파일이 바이너리 형식의 파일이다
+When 사용자가 "winmdview.exe image.png"를 실행한다
+Then 에러 메시지가 표시되거나 원본 텍스트가 그대로 렌더링된다
+  And 프로그램이 crash하지 않는다
 ```
 
 ---
@@ -186,7 +210,7 @@ Then 데이터 경쟁(race condition)이 감지되지 않는다
 |------|------|-----------|
 | 빌드 성공 | `go build` 에러 없음 | `go build ./cmd/winmdview/` |
 | 테스트 통과 | 모든 테스트 PASS | `go test ./...` |
-| 테스트 커버리지 | 85% 이상 (GUI 제외) | `go test -coverprofile=coverage.out ./internal/...` |
+| 테스트 커버리지 | 85% 이상 (`internal/markdown/` 패키지 기준, `internal/viewer/`는 커버리지 측정 제외) | `go test -coverprofile=coverage.out ./internal/markdown/...` |
 | 경쟁 조건 | 감지 없음 | `go test -race ./...` |
 | 정적 분석 | 경고 없음 | `go vet ./...` |
 | CGO 미사용 | CGO_ENABLED=0 빌드 성공 | `CGO_ENABLED=0 go build ./cmd/winmdview/` |
@@ -202,6 +226,6 @@ Then 데이터 경쟁(race condition)이 감지되지 않는다
 - [ ] `go test ./...` 모든 테스트 통과
 - [ ] `go test -race ./...` 경쟁 조건 미감지
 - [ ] `go vet ./...` 경고 없음
-- [ ] 테스트 커버리지 85% 이상 (internal/ 패키지 기준)
+- [ ] 테스트 커버리지 85% 이상 (`internal/markdown/` 패키지 기준, `internal/viewer/`는 제외)
 - [ ] 실제 Markdown 파일로 수동 실행 검증 완료
 - [ ] WebView2 윈도우에서 GitHub 스타일 렌더링 확인
