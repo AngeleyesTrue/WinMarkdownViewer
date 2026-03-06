@@ -66,6 +66,7 @@ func ReadFile(filePath string) ([]byte, error) {
 
 // RenderPipeline 은 Markdown 파일을 읽어 완전한 HTML 문서를 생성하는 파이프라인이다.
 // 빈 파일의 경우 "내용이 없습니다" 메시지를 포함한 HTML을 반환한다.
+// SetHtml 기반 레거시 방식에서 사용된다.
 func RenderPipeline(filePath string) (string, error) {
 	content, err := ReadFile(filePath)
 	if err != nil {
@@ -86,4 +87,25 @@ func RenderPipeline(filePath string) (string, error) {
 	}
 
 	return viewer.BuildFullHTML(filename, rendered)
+}
+
+// RenderMarkdown 은 Markdown 파일을 읽어 렌더링된 HTML 본문만 반환한다.
+// 서버 기반 Navigate 방식에서 사용되며, 전체 HTML 문서가 아닌 콘텐츠 부분만 생성한다.
+// 빈 파일의 경우 "내용이 없습니다" 안내 메시지를 반환한다.
+func RenderMarkdown(filePath string) (string, error) {
+	content, err := ReadFile(filePath)
+	if err != nil {
+		return "", err
+	}
+
+	if len(strings.TrimSpace(string(content))) == 0 {
+		return "<p><em>내용이 없습니다.</em></p>", nil
+	}
+
+	rendered, err := markdown.Render(content)
+	if err != nil {
+		return "", fmt.Errorf("마크다운 렌더링 오류: %v", err)
+	}
+
+	return rendered, nil
 }

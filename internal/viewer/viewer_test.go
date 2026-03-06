@@ -188,6 +188,18 @@ func TestBuildFullHTMLSpecialCharactersInTitle(t *testing.T) {
 	}
 }
 
+// TestViewerNavigate Navigate 메서드가 WebView에 URL을 전달하는지 검증한다.
+func TestViewerNavigate(t *testing.T) {
+	mock := &mockWebView{}
+	v := &Viewer{webview: mock}
+
+	v.Navigate("http://127.0.0.1:8080")
+
+	if mock.url != "http://127.0.0.1:8080" {
+		t.Errorf("Navigate URL: want %q, got %q", "http://127.0.0.1:8080", mock.url)
+	}
+}
+
 // TestBuildFullHTMLIncludesCSS 생성된 HTML에 CSS가 포함되는지 검증한다.
 func TestBuildFullHTMLIncludesCSS(t *testing.T) {
 	result, err := BuildFullHTML("Title", "<p>content</p>")

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; connect-src ws://127.0.0.1:* ws://localhost:*; script-src 'unsafe-inline';">
     <title>{{.Title}}</title>
     <style>
         {{.CSS}}
@@ -13,12 +13,53 @@
             max-width: 980px;
             margin: 0 auto;
             padding: 45px;
+            font-size: {{.FontSize}}px;
         }
     </style>
 </head>
 <body>
-    <article class="markdown-body">
+    <article id="content" class="markdown-body">
         {{.Content}}
     </article>
+    <script>
+    (function() {
+        var reconnectDelay = 1000;
+        var maxReconnectDelay = 30000;
+        var ws = null;
+
+        function connect() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+
+            ws.onopen = function() {
+                reconnectDelay = 1000;
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    var msg = JSON.parse(event.data);
+                    if (msg.type === 'update') {
+                        var savedScrollY = window.scrollY;
+                        document.getElementById('content').innerHTML = msg.html;
+                        window.scrollTo(0, savedScrollY);
+                    }
+                } catch(e) {}
+            };
+
+            ws.onclose = function() {
+                ws = null;
+                setTimeout(function() {
+                    reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+                    connect();
+                }, reconnectDelay);
+            };
+
+            ws.onerror = function() {
+                if (ws) ws.close();
+            };
+        }
+
+        connect();
+    })();
+    </script>
 </body>
 </html>

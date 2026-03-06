@@ -187,3 +187,85 @@ func TestRenderPipelineFileNotFound(t *testing.T) {
 		t.Fatal("존재하지 않는 파일에 대해 에러가 반환되어야 한다")
 	}
 }
+
+// TestRenderMarkdownSuccess 마크다운 렌더링 함수가 HTML 본문만 반환하는지 검증한다.
+func TestRenderMarkdownSuccess(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "test.md")
+	if err := os.WriteFile(tmpFile, []byte("# Hello\n\nWorld"), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	html, err := RenderMarkdown(tmpFile)
+	if err != nil {
+		t.Fatalf("RenderMarkdown() 오류: %v", err)
+	}
+
+	// 전체 HTML 문서가 아닌 본문만 반환해야 한다
+	if strings.Contains(html, "<!DOCTYPE html>") {
+		t.Error("RenderMarkdown은 전체 HTML 문서가 아닌 본문만 반환해야 한다")
+	}
+	if !strings.Contains(html, "Hello") {
+		t.Error("렌더링 결과에 'Hello'가 포함되어야 한다")
+	}
+}
+
+// TestRenderMarkdownEmptyFile 빈 파일의 마크다운 렌더링을 검증한다.
+func TestRenderMarkdownEmptyFile(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "empty.md")
+	if err := os.WriteFile(tmpFile, []byte(""), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	html, err := RenderMarkdown(tmpFile)
+	if err != nil {
+		t.Fatalf("RenderMarkdown() 빈 파일 오류: %v", err)
+	}
+
+	if !strings.Contains(html, "내용이 없습니다") {
+		t.Error("빈 파일에 대해 '내용이 없습니다' 메시지가 포함되어야 한다")
+	}
+}
+
+// TestRenderMarkdownFileNotFound 존재하지 않는 파일을 검증한다.
+func TestRenderMarkdownFileNotFound(t *testing.T) {
+	_, err := RenderMarkdown("nonexistent_12345.md")
+	if err == nil {
+		t.Fatal("존재하지 않는 파일에 대해 에러가 반환되어야 한다")
+	}
+}
+
+// TestRenderMarkdownWhitespaceFile 공백만 있는 파일의 렌더링을 검증한다.
+func TestRenderMarkdownWhitespaceFile(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "ws.md")
+	if err := os.WriteFile(tmpFile, []byte("  \n  \t "), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	html, err := RenderMarkdown(tmpFile)
+	if err != nil {
+		t.Fatalf("RenderMarkdown() 오류: %v", err)
+	}
+	if !strings.Contains(html, "내용이 없습니다") {
+		t.Error("공백만 있는 파일에 대해 '내용이 없습니다' 메시지가 포함되어야 한다")
+	}
+}
+
+// TestReadFileNotExist 존재하지 않는 파일 읽기가 적절한 에러를 반환하는지 검증한다.
+func TestReadFileNotExist(t *testing.T) {
+	_, err := ReadFile(filepath.Join(t.TempDir(), "no_such_file.md"))
+	if err == nil {
+		t.Fatal("존재하지 않는 파일 읽기 시 에러가 반환되어야 한다")
+	}
+}
+
+// TestValidateFileValid 정상 파일의 검증을 다시 확인한다.
+func TestValidateFileValidMarkdown(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "valid.md")
+	if err := os.WriteFile(tmpFile, []byte("# 정상 마크다운 파일"), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	if err := ValidateFile(tmpFile); err != nil {
+		t.Fatalf("정상 파일 검증 실패: %v", err)
+	}
+}
