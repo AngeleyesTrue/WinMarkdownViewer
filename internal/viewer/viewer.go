@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"html/template"
 	"path/filepath"
+	"unsafe"
 
 	"github.com/AngeleyesTrue/WinMarkdownViewer/web"
 	"github.com/jchv/go-webview2"
@@ -22,6 +23,13 @@ type WebView interface {
 	Navigate(url string)
 	Run()
 	Destroy()
+	// Window 는 네이티브 윈도우 핸들(HWND)을 반환한다.
+	Window() unsafe.Pointer
+	// Terminate 은 이벤트 루프를 안전하게 중지한다.
+	// 백그라운드 스레드에서 호출해도 안전하다.
+	Terminate()
+	// Dispatch 는 메인 스레드에서 함수를 실행한다.
+	Dispatch(f func())
 }
 
 // Config 는 뷰어 윈도우의 설정을 정의한다.
@@ -113,6 +121,24 @@ func (v *Viewer) Run() {
 // Destroy 는 WebView2 리소스를 정리한다.
 func (v *Viewer) Destroy() {
 	v.webview.Destroy()
+}
+
+// Window 는 네이티브 윈도우 핸들(HWND)을 반환한다.
+// Windows에서는 HWND 포인터이다.
+func (v *Viewer) Window() unsafe.Pointer {
+	return v.webview.Window()
+}
+
+// Terminate 은 WebView2 이벤트 루프를 안전하게 중지한다.
+// 시스템 트레이 종료 등 백그라운드 스레드에서 호출해도 안전하다.
+func (v *Viewer) Terminate() {
+	v.webview.Terminate()
+}
+
+// Dispatch 는 메인 스레드(WebView2 이벤트 루프)에서 함수를 실행한다.
+// 다른 고루틴에서 UI 조작이 필요할 때 사용한다.
+func (v *Viewer) Dispatch(f func()) {
+	v.webview.Dispatch(f)
 }
 
 // templateData 는 HTML 템플릿에 전달할 데이터이다.
