@@ -385,6 +385,66 @@ func TestPipe_존재하지않는파일서버측무시(t *testing.T) {
 	cancel()
 }
 
+// TestPipe_널바이트경로서버측무시 는 널 바이트가 포함된 경로를 직접 파이프에 전송했을 때
+// 서버가 널 바이트 이후를 무시하고 유효한 경로 부분만 처리하는지 검증한다.
+func TestPipe_널바이트경로서버측무시(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	handlerCalled := false
+	handler := func(filePath string) {
+		handlerCalled = true
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// 널 바이트가 포함된 경로를 직접 파이프에 전송 (존재하지 않는 파일)
+	if err := rawWriteToPipe(t, []byte("C:\\test\x00evil\\file.md")); err != nil {
+		t.Fatalf("rawWriteToPipe 오류: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	if handlerCalled {
+		t.Error("널 바이트가 포함된 존재하지 않는 경로에 대해 핸들러가 호출되었다")
+	}
+
+	cancel()
+}
+
+// TestPipe_상대경로서버측무시 는 상대 경로를 직접 파이프에 전송했을 때
+// 서버가 핸들러를 호출하지 않는지 검증한다.
+func TestPipe_상대경로서버측무시(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	handlerCalled := false
+	handler := func(filePath string) {
+		handlerCalled = true
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// 상대 경로를 직접 파이프에 전송
+	if err := rawWriteToPipe(t, []byte("relative/path/file.md")); err != nil {
+		t.Fatalf("rawWriteToPipe 오류: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	if handlerCalled {
+		t.Error("상대 경로에 대해 핸들러가 호출되었다")
+	}
+
+	cancel()
+}
+
 // TestPipe_유효한파일서버측전달 은 직접 파이프에 유효한 파일 경로를 전송했을 때
 // 서버가 핸들러를 정상적으로 호출하는지 검증한다.
 func TestPipe_유효한파일서버측전달(t *testing.T) {

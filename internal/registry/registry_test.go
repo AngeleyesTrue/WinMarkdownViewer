@@ -234,32 +234,45 @@ func TestUnregister_command키없이shell키만존재(t *testing.T) {
 	}
 }
 
-// TestRegister_빈경로로등록 은 빈 exePath로 Register를 호출해도 레지스트리에 값이
-// 설정되는지 검증한다 (에러 없이 빈 command 값 생성).
+// TestRegister_빈경로로등록 은 빈 exePath로 Register를 호출하면 에러가 반환되는지 검증한다.
 func TestRegister_빈경로로등록(t *testing.T) {
 	t.Cleanup(func() { cleanupTestKeys(t) })
 	cleanupTestKeys(t)
 
-	// 빈 경로로 Register 호출 - API 에러 없이 빈 command 값이 설정됨
 	err := regpkg.Register("")
-	if err != nil {
-		t.Fatalf("빈 경로 Register()에서 예상치 못한 오류: %v", err)
+	if err == nil {
+		t.Fatal("빈 경로 Register()는 에러를 반환해야 한다")
 	}
+	if !strings.Contains(err.Error(), "비어 있습니다") {
+		t.Errorf("에러 메시지에 '비어 있습니다'가 포함되어야 함: %v", err)
+	}
+}
 
-	// command 키의 기본값 확인
-	ck, err := registry.OpenKey(registry.CURRENT_USER, testShellKeyPath+`\command`, registry.QUERY_VALUE)
-	if err != nil {
-		t.Fatalf("command 키 열기 실패: %v", err)
-	}
-	defer ck.Close()
+// TestRegister_상대경로거부 는 상대 경로로 Register를 호출하면 에러가 반환되는지 검증한다.
+func TestRegister_상대경로거부(t *testing.T) {
+	t.Cleanup(func() { cleanupTestKeys(t) })
+	cleanupTestKeys(t)
 
-	cmdVal, _, err := ck.GetStringValue("")
-	if err != nil {
-		t.Fatalf("command 기본값 읽기 실패: %v", err)
+	err := regpkg.Register("relative/path/winmdview.exe")
+	if err == nil {
+		t.Fatal("상대 경로 Register()는 에러를 반환해야 한다")
 	}
-	// 빈 경로는 "" "%1" 형태로 저장되어야 함
-	if cmdVal != `"" "%1"` {
-		t.Errorf("빈 경로 command 값 = %q, want %q", cmdVal, `"" "%1"`)
+	if !strings.Contains(err.Error(), "절대 경로") {
+		t.Errorf("에러 메시지에 '절대 경로'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestRegister_널바이트경로거부 는 널 바이트가 포함된 경로로 Register를 호출하면 에러가 반환되는지 검증한다.
+func TestRegister_널바이트경로거부(t *testing.T) {
+	t.Cleanup(func() { cleanupTestKeys(t) })
+	cleanupTestKeys(t)
+
+	err := regpkg.Register("C:\\Test\x00evil\\winmdview.exe")
+	if err == nil {
+		t.Fatal("널 바이트 경로 Register()는 에러를 반환해야 한다")
+	}
+	if !strings.Contains(err.Error(), "유효하지 않은 문자") {
+		t.Errorf("에러 메시지에 '유효하지 않은 문자'가 포함되어야 함: %v", err)
 	}
 }
 

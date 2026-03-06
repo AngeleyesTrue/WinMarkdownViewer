@@ -1,9 +1,11 @@
 package app
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -121,11 +123,23 @@ func listenOnce(ctx context.Context, handler func(filePath string)) error {
 		return nil // 빈 데이터 무시
 	}
 
-	filePath := string(buf[:bytesRead])
+	// 널 바이트 제거 (악의적 입력 방어)
+	rawData := buf[:bytesRead]
+	if idx := bytes.IndexByte(rawData, 0); idx >= 0 {
+		rawData = rawData[:idx]
+	}
+
+	filePath := string(rawData)
 
 	// 유효성 검증: 빈 문자열 무시
 	if len(filePath) == 0 {
 		return nil
+	}
+
+	// 경로 정규화 및 절대 경로 검증
+	filePath = filepath.Clean(filePath)
+	if !filepath.IsAbs(filePath) {
+		return nil // 상대 경로 무시
 	}
 
 	// 유효성 검증: 파일 존재 여부

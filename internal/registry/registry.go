@@ -8,6 +8,8 @@ package registry
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/windows/registry"
 )
@@ -37,10 +39,28 @@ func SetShellKeyPath(path string) {
 	shellKeyPath = path
 }
 
+// validateExePath 는 레지스트리에 등록할 실행 파일 경로를 검증한다.
+func validateExePath(exePath string) error {
+	if len(exePath) == 0 {
+		return fmt.Errorf("실행 파일 경로가 비어 있습니다")
+	}
+	if strings.ContainsRune(exePath, 0) {
+		return fmt.Errorf("실행 파일 경로에 유효하지 않은 문자가 포함되어 있습니다")
+	}
+	if !filepath.IsAbs(exePath) {
+		return fmt.Errorf("실행 파일 경로는 절대 경로여야 합니다: %s", exePath)
+	}
+	return nil
+}
+
 // Register 는 Windows 탐색기 컨텍스트 메뉴에 "마크다운 뷰어로 열기" 항목을 등록한다.
 // exePath 는 실행 파일의 전체 경로이다.
 // 이미 등록된 경우 exe 경로를 업데이트한다 (ACC-009).
 func Register(exePath string) error {
+	if err := validateExePath(exePath); err != nil {
+		return err
+	}
+
 	// shell 키 생성 (이미 존재하면 열기)
 	k, _, err := registry.CreateKey(
 		registry.CURRENT_USER,
