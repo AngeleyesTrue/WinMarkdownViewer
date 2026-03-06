@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/AngeleyesTrue/WinMarkdownViewer/internal/app"
+	"golang.org/x/sys/windows"
 )
 
 // TestPipe_서버클라이언트통신 은 ListenPipe 서버와 SendPath 클라이언트 간
@@ -267,6 +270,163 @@ func TestPipe_존재하지않는파일거부(t *testing.T) {
 
 	if handlerCalled {
 		t.Error("존재하지 않는 파일에 대해 핸들러가 호출되었다")
+	}
+
+	cancel()
+}
+
+// TestSendPath_빈문자열에러메시지 는 빈 문자열 전송 시 적절한 에러 메시지를 반환하는지 검증한다.
+func TestSendPath_빈문자열에러메시지(t *testing.T) {
+	err := app.SendPath("")
+	if err == nil {
+		t.Fatal("빈 문자열 SendPath()는 에러를 반환해야 한다")
+	}
+	if !strings.Contains(err.Error(), "비어 있습니다") {
+		t.Errorf("에러 메시지에 '비어 있습니다'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestSendPath_존재하지않는파일에러메시지 는 존재하지 않는 파일 전송 시
+// 적절한 에러 메시지를 반환하는지 검증한다.
+func TestSendPath_존재하지않는파일에러메시지(t *testing.T) {
+	err := app.SendPath(`C:\nonexistent_path_99999\file.md`)
+	if err == nil {
+		t.Fatal("존재하지 않는 파일 SendPath()는 에러를 반환해야 한다")
+	}
+	if !strings.Contains(err.Error(), "찾을 수 없습니다") {
+		t.Errorf("에러 메시지에 '찾을 수 없습니다'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestListenPipe_즉시취소 는 이미 취소된 context로 ListenPipe를 호출하면
+// 즉시 종료되는지 검증한다.
+func TestListenPipe_즉시취소(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 즉시 취소
+
+	done := make(chan error, 1)
+	go func() {
+		done <- app.ListenPipe(ctx, func(string) {})
+	}()
+
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Errorf("즉시 취소된 context에서 err = %v, want context.Canceled", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("이미 취소된 context에서 ListenPipe가 종료되지 않았다")
+	}
+}
+
+// rawWriteToPipe 는 SendPath의 유효성 검사를 우회하여 Named Pipe에
+// 원시 바이트를 직접 전송하는 헬퍼 함수이다.
+func rawWriteToPipe(t *testing.T, data []byte) error {
+	t.Helper()
+
+	pipeName, err := syscall.UTF16PtrFromString(app.DefaultPipeName)
+	if err != nil {
+		return err
+	}
+
+	var handle windows.Handle
+	for retry := 0; retry < 10; retry++ {
+		handle, err = windows.CreateFile(
+			pipeName,
+			windows.GENERIC_WRITE,
+			0,
+			nil,
+			windows.OPEN_EXISTING,
+			0,
+			0,
+		)
+		if err == nil {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(handle)
+
+	var bytesWritten uint32
+	return windows.WriteFile(handle, data, &bytesWritten, nil)
+}
+
+// TestPipe_존재하지않는파일서버측무시 는 유효성 검사를 우회하여 존재하지 않는 파일 경로를
+// 직접 파이프에 전송했을 때 서버가 핸들러를 호출하지 않는지 검증한다 (ACC-011).
+func TestPipe_존재하지않는파일서버측무시(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	handlerCalled := false
+	handler := func(filePath string) {
+		handlerCalled = true
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// 존재하지 않는 파일 경로를 직접 파이프에 전송
+	if err := rawWriteToPipe(t, []byte(`C:\nonexistent_99999\file.md`)); err != nil {
+		t.Fatalf("rawWriteToPipe 오류: %v", err)
+	}
+
+	// 핸들러가 호출되지 않아야 함
+	time.Sleep(500 * time.Millisecond)
+
+	if handlerCalled {
+		t.Error("존재하지 않는 파일에 대해 서버 측 핸들러가 호출되었다")
+	}
+
+	cancel()
+}
+
+// TestPipe_유효한파일서버측전달 은 직접 파이프에 유효한 파일 경로를 전송했을 때
+// 서버가 핸들러를 정상적으로 호출하는지 검증한다.
+func TestPipe_유효한파일서버측전달(t *testing.T) {
+	// 테스트용 임시 파일 생성
+	tmpFile := filepath.Join(t.TempDir(), "raw_test.md")
+	if err := os.WriteFile(tmpFile, []byte("# Raw Test"), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var received string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	handler := func(filePath string) {
+		mu.Lock()
+		received = filePath
+		mu.Unlock()
+		close(done)
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// 유효한 파일 경로를 직접 파이프에 전송
+	if err := rawWriteToPipe(t, []byte(tmpFile)); err != nil {
+		t.Fatalf("rawWriteToPipe 오류: %v", err)
+	}
+
+	select {
+	case <-done:
+		mu.Lock()
+		if received != tmpFile {
+			t.Errorf("수신된 경로 = %q, want %q", received, tmpFile)
+		}
+		mu.Unlock()
+	case <-time.After(3 * time.Second):
+		t.Fatal("핸들러가 호출되지 않았다 (타임아웃)")
 	}
 
 	cancel()

@@ -206,3 +206,144 @@ func TestRegister_HKLM미접근(t *testing.T) {
 		t.Error("HKLM에 레지스트리 키가 생성되었다 - REQ-N-001 위반")
 	}
 }
+
+// TestUnregister_command키없이shell키만존재 는 command 하위 키 없이 shell 키만
+// 존재하는 비정상 상태에서 Unregister 호출 시 에러를 반환하는지 검증한다.
+func TestUnregister_command키없이shell키만존재(t *testing.T) {
+	t.Cleanup(func() { cleanupTestKeys(t) })
+	cleanupTestKeys(t)
+
+	// shell 키만 직접 생성 (command 키 없이)
+	k, _, err := registry.CreateKey(
+		registry.CURRENT_USER,
+		testShellKeyPath,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		t.Fatalf("테스트 shell 키 생성 실패: %v", err)
+	}
+	k.Close()
+
+	// command 키 없이 Unregister 호출 - command 키 삭제 시 에러 발생해야 함
+	err = regpkg.Unregister()
+	if err == nil {
+		t.Fatal("command 키가 없는 상태에서 Unregister()는 에러를 반환해야 한다")
+	}
+	if !strings.Contains(err.Error(), "command 키 삭제 실패") {
+		t.Errorf("에러 메시지에 'command 키 삭제 실패'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestRegister_빈경로로등록 은 빈 exePath로 Register를 호출해도 레지스트리에 값이
+// 설정되는지 검증한다 (에러 없이 빈 command 값 생성).
+func TestRegister_빈경로로등록(t *testing.T) {
+	t.Cleanup(func() { cleanupTestKeys(t) })
+	cleanupTestKeys(t)
+
+	// 빈 경로로 Register 호출 - API 에러 없이 빈 command 값이 설정됨
+	err := regpkg.Register("")
+	if err != nil {
+		t.Fatalf("빈 경로 Register()에서 예상치 못한 오류: %v", err)
+	}
+
+	// command 키의 기본값 확인
+	ck, err := registry.OpenKey(registry.CURRENT_USER, testShellKeyPath+`\command`, registry.QUERY_VALUE)
+	if err != nil {
+		t.Fatalf("command 키 열기 실패: %v", err)
+	}
+	defer ck.Close()
+
+	cmdVal, _, err := ck.GetStringValue("")
+	if err != nil {
+		t.Fatalf("command 기본값 읽기 실패: %v", err)
+	}
+	// 빈 경로는 "" "%1" 형태로 저장되어야 함
+	if cmdVal != `"" "%1"` {
+		t.Errorf("빈 경로 command 값 = %q, want %q", cmdVal, `"" "%1"`)
+	}
+}
+
+// TestRegister_특수문자경로 는 유니코드와 특수문자가 포함된 경로로 Register를 호출해도
+// 정상적으로 동작하는지 검증한다.
+func TestRegister_특수문자경로(t *testing.T) {
+	t.Cleanup(func() { cleanupTestKeys(t) })
+	cleanupTestKeys(t)
+
+	exePath := `C:\프로그램\마크다운 뷰어\winmdview.exe`
+	err := regpkg.Register(exePath)
+	if err != nil {
+		t.Fatalf("특수문자 경로 Register() 오류: %v", err)
+	}
+
+	// 등록 확인
+	registered, err := regpkg.IsRegistered()
+	if err != nil {
+		t.Fatalf("IsRegistered() 오류: %v", err)
+	}
+	if !registered {
+		t.Error("특수문자 경로 등록 후 IsRegistered() = false, want true")
+	}
+
+	// 해제 확인
+	if err := regpkg.Unregister(); err != nil {
+		t.Fatalf("Unregister() 오류: %v", err)
+	}
+}
+
+// TestRegister_잘못된shellKeyPath는 shell 키 경로가 유효하지 않을 때
+// Register가 에러를 반환하는지 검증한다.
+func TestRegister_잘못된shellKeyPath(t *testing.T) {
+	// 기존 경로를 저장하고 복원
+	originalPath := testShellKeyPath
+	t.Cleanup(func() {
+		regpkg.SetShellKeyPath(originalPath)
+	})
+
+	// null 문자가 포함된 잘못된 경로로 설정
+	regpkg.SetShellKeyPath("Software\x00Invalid")
+
+	err := regpkg.Register(`C:\Test\winmdview.exe`)
+	if err == nil {
+		t.Fatal("잘못된 shellKeyPath로 Register()는 에러를 반환해야 한다")
+	}
+	if !strings.Contains(err.Error(), "shell 키 생성 실패") {
+		t.Errorf("에러 메시지에 'shell 키 생성 실패'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestUnregister_잘못된shellKeyPath는 shell 키 경로가 유효하지 않을 때
+// Unregister가 에러를 반환하는지 검증한다.
+func TestUnregister_잘못된shellKeyPath(t *testing.T) {
+	originalPath := testShellKeyPath
+	t.Cleanup(func() {
+		regpkg.SetShellKeyPath(originalPath)
+	})
+
+	// null 문자가 포함된 잘못된 경로로 설정
+	regpkg.SetShellKeyPath("Software\x00Invalid")
+
+	err := regpkg.Unregister()
+	if err == nil {
+		t.Fatal("잘못된 shellKeyPath로 Unregister()는 에러를 반환해야 한다")
+	}
+}
+
+// TestIsRegistered_잘못된shellKeyPath는 잘못된 경로에서 IsRegistered가
+// false를 반환하는지 검증한다.
+func TestIsRegistered_잘못된shellKeyPath(t *testing.T) {
+	originalPath := testShellKeyPath
+	t.Cleanup(func() {
+		regpkg.SetShellKeyPath(originalPath)
+	})
+
+	// null 문자가 포함된 잘못된 경로로 설정
+	regpkg.SetShellKeyPath("Software\x00Invalid")
+
+	registered, err := regpkg.IsRegistered()
+	if err != nil {
+		t.Fatalf("IsRegistered() 예상치 못한 오류: %v", err)
+	}
+	if registered {
+		t.Error("잘못된 경로에서 IsRegistered() = true, want false")
+	}
+}

@@ -84,3 +84,39 @@ func TestUnlock후재TryLock성공(t *testing.T) {
 		t.Error("Unlock 후 재 TryLock() = false, want true")
 	}
 }
+
+// TestUnlock_잠금없이호출 은 TryLock을 호출하지 않은 상태에서 Unlock이
+// 에러 없이 반환되는지 검증한다 (handle == 0 분기).
+func TestUnlock_잠금없이호출(t *testing.T) {
+	inst := app.NewInstanceLock()
+
+	// TryLock 없이 바로 Unlock - handle이 0이므로 nil 반환
+	err := inst.Unlock()
+	if err != nil {
+		t.Errorf("잠금 없이 Unlock() 오류: %v", err)
+	}
+}
+
+// TestUnlock_중복호출 은 Unlock을 두 번 호출해도 안전한지 검증한다.
+func TestUnlock_중복호출(t *testing.T) {
+	inst := app.NewInstanceLock()
+
+	got, err := inst.TryLock()
+	if err != nil {
+		t.Fatalf("TryLock() 오류: %v", err)
+	}
+	if !got {
+		t.Fatal("TryLock() = false, want true")
+	}
+
+	// 첫 번째 Unlock
+	if err := inst.Unlock(); err != nil {
+		t.Fatalf("첫 번째 Unlock() 오류: %v", err)
+	}
+
+	// 두 번째 Unlock - handle이 이미 0이므로 nil 반환
+	err = inst.Unlock()
+	if err != nil {
+		t.Errorf("두 번째 Unlock() 오류: %v", err)
+	}
+}
