@@ -20,6 +20,18 @@ var shellKeyPath = `Software\Classes\SystemFileAssociations\.md\shell\WinMarkdow
 // menuLabel 은 컨텍스트 메뉴에 표시되는 텍스트이다.
 const menuLabel = "마크다운 뷰어로 열기"
 
+// progID 는 "Open with" 목록에 등록하기 위한 ProgID이다.
+const progID = "WinMarkdownViewer.md"
+
+// appKeyPath 는 Applications 레지스트리 경로이다.
+const appKeyPath = `Software\Classes\Applications\winmdview.exe`
+
+// progIDKeyPath 는 ProgID 레지스트리 경로이다.
+const progIDKeyPath = `Software\Classes\` + progID
+
+// openWithKeyPath 는 .md 파일의 OpenWithProgids 레지스트리 경로이다.
+const openWithKeyPath = `Software\Classes\.md\OpenWithProgids`
+
 // SetShellKeyPath 는 레지스트리 경로를 변경한다 (테스트 전용).
 func SetShellKeyPath(path string) {
 	shellKeyPath = path
@@ -62,6 +74,66 @@ func Register(exePath string) error {
 		return fmt.Errorf("명령어 값 설정 실패: %w", err)
 	}
 
+	// "Open with" 프로그램 목록 등록
+	if err := registerOpenWith(exePath); err != nil {
+		return fmt.Errorf("Open with 등록 실패: %w", err)
+	}
+
+	return nil
+}
+
+// registerOpenWith 는 "Open with" 프로그램 선택 목록에 WinMarkdownViewer를 등록한다.
+// 1. Applications\winmdview.exe 키에 앱 정보 등록
+// 2. ProgID (WinMarkdownViewer.md) 키에 shell\open\command 등록
+// 3. .md\OpenWithProgids에 ProgID 추가
+func registerOpenWith(exePath string) error {
+	// 1. Applications 등록: 앱 표시 이름
+	appKey, _, err := registry.CreateKey(
+		registry.CURRENT_USER,
+		appKeyPath,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		return fmt.Errorf("Applications 키 생성 실패: %w", err)
+	}
+	defer appKey.Close()
+
+	if err := appKey.SetStringValue("FriendlyAppName", "WinMarkdownViewer"); err != nil {
+		return fmt.Errorf("FriendlyAppName 설정 실패: %w", err)
+	}
+
+	// 2. ProgID 등록: shell\open\command
+	progKey, _, err := registry.CreateKey(
+		registry.CURRENT_USER,
+		progIDKeyPath+`\shell\open\command`,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		return fmt.Errorf("ProgID command 키 생성 실패: %w", err)
+	}
+	defer progKey.Close()
+
+	cmdValue := fmt.Sprintf(`"%s" "%%1"`, exePath)
+	if err := progKey.SetStringValue("", cmdValue); err != nil {
+		return fmt.Errorf("ProgID command 값 설정 실패: %w", err)
+	}
+
+	// 3. OpenWithProgids에 ProgID 추가
+	owKey, _, err := registry.CreateKey(
+		registry.CURRENT_USER,
+		openWithKeyPath,
+		registry.SET_VALUE,
+	)
+	if err != nil {
+		return fmt.Errorf("OpenWithProgids 키 생성 실패: %w", err)
+	}
+	defer owKey.Close()
+
+	// 빈 문자열 값으로 ProgID를 추가한다
+	if err := owKey.SetStringValue(progID, ""); err != nil {
+		return fmt.Errorf("OpenWithProgids 값 설정 실패: %w", err)
+	}
+
 	return nil
 }
 
@@ -87,7 +159,29 @@ func Unregister() error {
 		return fmt.Errorf("shell 키 삭제 실패: %w", err)
 	}
 
+	// "Open with" 등록 정리 (에러 무시 - 핵심 기능이 아님)
+	unregisterOpenWith()
+
 	return nil
+}
+
+// unregisterOpenWith 는 "Open with" 등록을 정리한다.
+func unregisterOpenWith() {
+	// OpenWithProgids에서 ProgID 제거
+	owKey, err := registry.OpenKey(registry.CURRENT_USER, openWithKeyPath, registry.SET_VALUE)
+	if err == nil {
+		_ = owKey.DeleteValue(progID)
+		owKey.Close()
+	}
+
+	// ProgID command 키 삭제 (하위부터)
+	_ = registry.DeleteKey(registry.CURRENT_USER, progIDKeyPath+`\shell\open\command`)
+	_ = registry.DeleteKey(registry.CURRENT_USER, progIDKeyPath+`\shell\open`)
+	_ = registry.DeleteKey(registry.CURRENT_USER, progIDKeyPath+`\shell`)
+	_ = registry.DeleteKey(registry.CURRENT_USER, progIDKeyPath)
+
+	// Applications 키 삭제
+	_ = registry.DeleteKey(registry.CURRENT_USER, appKeyPath)
 }
 
 // IsRegistered 는 컨텍스트 메뉴가 등록되어 있는지 확인한다.
