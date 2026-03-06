@@ -10,7 +10,12 @@ WinMarkdownViewer/
 ├── internal/
 │   ├── app/
 │   │   ├── app.go               # 파일 검증 및 렌더링 파이프라인
-│   │   └── app_test.go
+│   │   ├── app_test.go
+│   │   ├── constants.go         # 공통 상수 (Mutex 이름, Pipe 경로 등)
+│   │   ├── instance.go          # Named Mutex 단일 인스턴스 관리
+│   │   ├── instance_test.go
+│   │   ├── pipe.go              # Named Pipe 프로세스 간 통신
+│   │   └── pipe_test.go
 │   ├── config/
 │   │   ├── config.go            # 사용자 설정 구조체 및 기본값
 │   │   ├── config_test.go
@@ -27,10 +32,19 @@ WinMarkdownViewer/
 │   ├── watcher/
 │   │   ├── watcher.go           # 파일 변경 감시 (fsnotify + debounce)
 │   │   └── watcher_test.go
-│   └── viewer/
-│       ├── viewer.go            # WebView2 창 관리
-│       ├── viewer_test.go
-│       └── errors.go            # 오류 타입 정의
+│   ├── viewer/
+│   │   ├── viewer.go            # WebView2 창 관리 (트레이 최소화/복원 지원)
+│   │   ├── viewer_test.go
+│   │   └── errors.go            # 오류 타입 정의
+│   ├── registry/
+│   │   ├── registry.go          # Windows 레지스트리 컨텍스트 메뉴 관리
+│   │   └── registry_test.go
+│   └── tray/
+│       ├── tray.go              # 시스템 트레이 관리
+│       └── tray_test.go
+├── assets/
+│   ├── icon.ico                 # 트레이/컨텍스트 메뉴 아이콘 (16x16, 32x32)
+│   └── embed.go                 # 아이콘 리소스 임베딩
 ├── web/
 │   ├── templates/
 │   │   └── viewer.html          # 마크다운 뷰어 HTML 템플릿 (WebSocket 클라이언트 포함)
@@ -47,11 +61,13 @@ WinMarkdownViewer/
 
 ```
 cmd/winmdview/main.go
-  ├── internal/app          # 앱 초기화 및 렌더링 파이프라인
-  │   ├── internal/viewer   # WebView2 창
+  ├── internal/app          # 앱 초기화, 렌더링 파이프라인, 단일 인스턴스, Pipe
+  │   ├── internal/viewer   # WebView2 창 (트레이 최소화/복원 지원)
   │   ├── internal/server   # HTTP + WebSocket 서버
   │   ├── internal/watcher  # 파일 감시
   │   └── internal/config   # 설정 관리
+  ├── internal/registry     # Windows 레지스트리 컨텍스트 메뉴
+  ├── internal/tray         # 시스템 트레이
   └── internal/markdown     # 마크다운 렌더링 (독립)
 ```
 

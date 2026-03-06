@@ -2,7 +2,7 @@
 id: SPEC-WIN-001
 title: "Windows Integration - Context Menu, System Tray, Single Instance"
 version: 1.0.0
-status: draft
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"
@@ -215,3 +215,32 @@ WinMarkdownViewer/
 | REQ-O-001 | internal/registry/registry.go | - |
 | REQ-O-002 | internal/tray/tray.go | - |
 | REQ-O-003 | internal/registry/registry.go | - |
+
+---
+
+## Implementation Notes
+
+### 구현 완료 요약 (2026-03-06)
+
+**구현된 기능:**
+- REQ-E-001 ~ REQ-E-008: 컨텍스트 메뉴 등록/해제, 시스템 트레이, 단일 인스턴스 전체 구현
+- REQ-U-001 ~ REQ-U-003: HKCU 전용, 트레이 툴팁, Named Mutex 이름 준수
+- REQ-N-001 ~ REQ-N-004: 금지 행위 전체 준수
+- REQ-S-001 ~ REQ-S-004: 상태 기반 요구사항 전체 구현
+- REQ-O-001: Open With 프로그램 선택 목록 등록 지원 (--set-default)
+
+**계획 대비 변경사항:**
+- 레지스트리 경로를 `HKCU\Software\Classes\.md\shell\` 에서 `HKCU\Software\Classes\SystemFileAssociations\.md\shell\`로 변경 (Windows 최신 파일 연결 모범 사례 적용)
+- `internal/app/constants.go` 추가 (리팩토링 단계에서 공통 상수 분리)
+- `internal/viewer/viewer.go` 확장 (트레이 최소화/복원 지원)
+
+**테스트 결과:**
+- 전체 테스트: 11 패키지 통과
+- 커버리지: internal/app 86.2%, internal/registry 80.6%
+- go vet: 클린
+- CGO: 미사용 (순수 Go 빌드)
+
+**제한사항:**
+- CGO 비활성으로 `-race` 플래그 테스트 불가
+- `internal/tray` 커버리지 32.0% (GUI 의존 코드)
+- `cmd/winmdview` 커버리지 6.2% (통합 테스트 한계)
