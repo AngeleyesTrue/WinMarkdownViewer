@@ -391,6 +391,253 @@ func TestSetFontSize_폰트크기설정(t *testing.T) {
 	}
 }
 
+// TestStaticFileServing_JS정적파일 /static/ 경로로 JS 파일이 서빙되는지 검증한다.
+func TestStaticFileServing_JS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	// /static/js/ 경로에 접근 가능해야 한다
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/js/render-extensions.js", port))
+	if err != nil {
+		t.Fatalf("정적 파일 HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("정적 JS 파일 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("정적 파일 응답 읽기 실패: %v", err)
+	}
+
+	if len(body) == 0 {
+		t.Error("정적 JS 파일 응답이 비어있음")
+	}
+}
+
+// TestStaticFileServing_CSS정적파일 /static/ 경로로 CSS 파일이 서빙되는지 검증한다.
+func TestStaticFileServing_CSS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/css/github-markdown.css", port))
+	if err != nil {
+		t.Fatalf("정적 CSS 파일 HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("정적 CSS 파일 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+// TestStaticFileServing_KaTeXJS정적파일 KaTeX JS 파일이 정적으로 서빙되는지 검증한다.
+func TestStaticFileServing_KaTeXJS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/js/katex.min.js", port))
+	if err != nil {
+		t.Fatalf("KaTeX JS HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("KaTeX JS 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+// TestStaticFileServing_MermaidJS정적파일 Mermaid JS 파일이 정적으로 서빙되는지 검증한다.
+func TestStaticFileServing_MermaidJS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/js/mermaid.min.js", port))
+	if err != nil {
+		t.Fatalf("Mermaid JS HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Mermaid JS 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+// TestStaticFileServing_KaTeXCSS정적파일 KaTeX CSS 파일이 정적으로 서빙되는지 검증한다.
+func TestStaticFileServing_KaTeXCSS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/css/katex.min.css", port))
+	if err != nil {
+		t.Fatalf("KaTeX CSS HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("KaTeX CSS 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("KaTeX CSS 응답 읽기 실패: %v", err)
+	}
+
+	// CSS 내용에 폰트 경로가 포함되어 있는지 확인
+	if !strings.Contains(string(body), "../fonts/") {
+		t.Error("KaTeX CSS에 수정된 폰트 경로(../fonts/)가 포함되지 않음")
+	}
+}
+
+// TestStaticFileServing_KaTeXFont정적파일 KaTeX 폰트 파일이 정적으로 서빙되는지 검증한다.
+func TestStaticFileServing_KaTeXFont정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	// 대표 폰트 파일 1개 확인
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/fonts/KaTeX_Main-Regular.woff2", port))
+	if err != nil {
+		t.Fatalf("KaTeX 폰트 HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("KaTeX 폰트 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+}
+
+// TestStaticFileServing_존재하지않는파일 존재하지 않는 정적 파일에 대해 404를 반환하는지 검증한다.
+func TestStaticFileServing_존재하지않는파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/nonexistent.file", port))
+	if err != nil {
+		t.Fatalf("HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("존재하지 않는 파일 상태 코드 = %d, want %d", resp.StatusCode, http.StatusNotFound)
+	}
+}
+
+// TestGetRoot_확장렌더링통합 GET / 응답에 확장 렌더링 관련 태그가 포함되는지 검증한다.
+func TestGetRoot_확장렌더링통합(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
+	if err != nil {
+		t.Fatalf("HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("응답 본문 읽기 실패: %v", err)
+	}
+
+	bodyStr := string(body)
+
+	// 확장 렌더링 관련 태그 확인
+	checks := []string{
+		"katex.min.css",
+		"katex.min.js",
+		"mermaid.min.js",
+		"render-extensions.js",
+		"renderExtensions",
+	}
+
+	for _, want := range checks {
+		if !strings.Contains(bodyStr, want) {
+			t.Errorf("응답에 %q 가 포함되지 않음", want)
+		}
+	}
+}
+
 // TestShutdown_서버미시작 서버가 시작되지 않은 상태에서 Shutdown을 호출해도 안전한지 검증한다.
 func TestShutdown_서버미시작(t *testing.T) {
 	t.Parallel()

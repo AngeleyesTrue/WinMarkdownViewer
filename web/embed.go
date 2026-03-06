@@ -22,3 +22,9 @@ var ViewerHTML []byte
 //
 //go:embed css/github-markdown.css
 var GitHubMarkdownCSS []byte
+
+// ExtensionAssets 는 확장 렌더링에 필요한 JS, CSS, 폰트 파일을 포함하는 임베디드 파일시스템이다.
+// KaTeX 수학 렌더링과 Mermaid 다이어그램에 사용되는 정적 리소스를 제공한다.
+//
+//go:embed js css fonts
+var ExtensionAssets embed.FS
