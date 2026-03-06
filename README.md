@@ -10,6 +10,8 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **실시간 미리보기**: 파일 저장 시 자동으로 변경 내용 반영 (fsnotify + WebSocket)
 - **스크롤 위치 유지**: 파일 변경 시 현재 스크롤 위치를 보존하여 끊김 없는 편집 경험 제공
 - **사용자 설정**: JSON 기반 설정 시스템 (테마, 폰트 크기, 창 크기/위치 기억)
+- **수학 수식**: KaTeX 기반 인라인($...$) 및 블록($$...$$) 수학 수식 렌더링
+- **다이어그램**: Mermaid 기반 flowchart, sequence, class, state, gantt, pie 다이어그램 렌더링
 - **오류 처리**: 파일 없음, 권한 오류, WebView2 미설치, 빈 파일 안내
 - **보안**: CSP 헤더로 XSS 방지, localhost 전용 서버 바인딩
 - **순수 Go**: CGO 없이 빌드 가능
@@ -86,6 +88,11 @@ internal/viewer/errors.go          오류 타입 정의
 internal/watcher/watcher.go        fsnotify 기반 파일 변경 감시
 web/templates/viewer.html          HTML 템플릿 (WebSocket 클라이언트 포함)
 web/css/github-markdown.css        GitHub Markdown CSS
+web/js/render-extensions.js        KaTeX 수식 + Mermaid 다이어그램 렌더링
+web/js/katex.min.js                KaTeX 렌더링 엔진 (go:embed)
+web/js/mermaid.min.js              Mermaid 렌더링 엔진 (go:embed)
+web/css/katex.min.css              KaTeX 수학 스타일시트
+web/fonts/                         KaTeX 수학 폰트 (woff2)
 web/embed.go                       go:embed 선언
 ```
 
@@ -99,6 +106,8 @@ web/embed.go                       go:embed 선언
 | 파일 감시 | github.com/fsnotify/fsnotify |
 | WebSocket | github.com/gorilla/websocket |
 | 정적 리소스 | Go 표준 go:embed |
+| 수학 수식 | KaTeX v0.16.x |
+| 다이어그램 | Mermaid v10.x |
 
 ## 라이선스
 
