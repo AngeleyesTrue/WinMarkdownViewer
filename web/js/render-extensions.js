@@ -158,14 +158,34 @@
         renderMermaid();
     }
 
+    /**
+     * KaTeX가 로딩될 때까지 대기한 후 수식을 렌더링한다.
+     * defer 스크립트 실행 순서가 보장되지 않는 환경(WebView2 등)을 위한 폴백이다.
+     */
+    function renderExtensionsWithRetry() {
+        if (typeof katex !== 'undefined') {
+            renderExtensions();
+            return;
+        }
+        // KaTeX가 아직 로딩되지 않은 경우 재시도 (최대 50회, 100ms 간격 = 5초)
+        var retries = 0;
+        var maxRetries = 50;
+        var timer = setInterval(function() {
+            retries++;
+            if (typeof katex !== 'undefined' || retries >= maxRetries) {
+                clearInterval(timer);
+                renderExtensions();
+            }
+        }, 100);
+    }
+
     // 전역에 노출하여 WebSocket 업데이트 후 호출 가능하게 한다
     window.renderExtensions = renderExtensions;
 
-    // DOMContentLoaded 시 자동 실행
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', renderExtensions);
+    // 모든 리소스 로드 완료 후 실행 (defer 스크립트 타이밍 문제 방지)
+    if (document.readyState === 'complete') {
+        renderExtensionsWithRetry();
     } else {
-        // 이미 로드 완료된 경우 (defer 스크립트)
-        renderExtensions();
+        window.addEventListener('load', renderExtensionsWithRetry);
     }
 })();
