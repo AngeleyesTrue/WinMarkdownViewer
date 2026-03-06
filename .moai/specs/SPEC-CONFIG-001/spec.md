@@ -1,8 +1,8 @@
 ---
 id: SPEC-CONFIG-001
 title: "User Configuration - JSON-based Settings System"
-version: 1.0.0
-status: draft
+version: 1.1.0
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"
@@ -220,3 +220,33 @@ Load() 호출
 | REQ-CFG-032 | Task 1.2 | AC-CFG-032 | internal/config/loader.go |
 | REQ-CFG-040 | Task 1.1, 1.2 | AC-CFG-040 | internal/config/config.go, loader.go |
 | REQ-CFG-041 | Task 1.4 | AC-CFG-041 | internal/config/loader.go |
+
+---
+
+## Implementation Notes (구현 노트)
+
+### 구현 일자
+- 2026-03-06
+
+### 구현 커밋
+- `3202f3d` feat(config): SPEC-CONFIG-001 JSON 기반 사용자 설정 시스템 구현
+
+### 계획 대비 변경 사항
+
+**구조적 변경:**
+- 계획대로 `config.go`, `loader.go`, `validator.go` 3파일 구조로 구현 완료
+- 각각의 테스트 파일(`config_test.go`, `loader_test.go`, `validator_test.go`) 포함
+
+**범위 변경:**
+- Task 2.1 (창 닫기 시 자동 저장): SPEC-WATCH-001의 app.go 레이어에서 통합 처리
+- Task 2.3 (시작 시 설정 적용): viewer.go 수정으로 반영
+- Secondary/Tertiary Goal 전체 구현 완료
+
+### 테스트 커버리지
+- config 패키지: 88.9%
+- 테이블 기반 테스트로 경계값 검증 완료
+- 전체 테스트 PASS, go vet 클린
+
+### 알려진 제한사항
+- 다중 프로세스 동시 접근 시 last-write-wins 정책 적용 (파일 잠금 미구현)
+- 설정 스키마 버전 관리(마이그레이션)는 범위 외

@@ -1,8 +1,8 @@
 ---
 id: SPEC-WATCH-001
 title: "Real-time Preview - File Watch and Auto Refresh"
-version: 1.0.0
-status: draft
+version: 1.1.0
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"
@@ -200,3 +200,33 @@ SPEC-UI-001에서는 `WebView2.SetHtml()`로 HTML을 직접 주입하는 방식�
 | REQ-S-003 | internal/server/server.go | ACC-010 |
 | REQ-O-001 | internal/server/handler.go | - |
 | REQ-O-002 | web/templates/viewer.html (JS) | - |
+
+---
+
+## Implementation Notes (구현 노트)
+
+### 구현 일자
+- 2026-03-06
+
+### 구현 커밋
+- `3538d4d` feat(watch): SPEC-WATCH-001 실시간 미리보기 - 파일 감시 및 자동 새로고침
+
+### 계획 대비 변경 사항
+
+**구조적 변경:**
+- `internal/server/handler.go`를 별도 파일로 분리하지 않고 `internal/server/server.go`에 통합. 핸들러 규모가 크지 않아 단일 파일이 가독성에 유리하다고 판단
+- `cmd/winmdview/main_test.go` 대신 `internal/app/app.go` + `internal/app/app_test.go`를 추가하여 앱 레이어를 분리. 진입점 테스트보다 앱 초기화 로직의 단위 테스트가 더 효과적
+
+**범위 변경:**
+- `SwitchFile()` 메서드는 SPEC-WIN-001 단일 인스턴스 구현 시점으로 연기
+- REQ-O-001 (diff 기반 전송)은 MVP 범위 외로 전체 HTML 전송 방식 채택
+- REQ-O-002 (타이틀바 업데이트 시각 표시)는 미구현
+
+### 테스트 커버리지
+- watcher: 85.9%
+- server: 89.5%
+- 전체 테스트 PASS, go vet 클린
+
+### 알려진 제한사항
+- `go test -race` 실행 불가 (CGO 미사용 환경). CI에서 CGO 활성화 환경으로 검증 필요
+- 대용량 파일(5MB+) 재렌더링 시 지연 가능 (비동기 처리 미적용)

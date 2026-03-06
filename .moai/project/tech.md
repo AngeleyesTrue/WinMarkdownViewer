@@ -9,6 +9,8 @@
 
 ## 핵심 라이브러리
 
+### 구현 완료
+
 | 라이브러리 | 용도 | 비고 |
 |-----------|------|------|
 | `github.com/jchv/go-webview2` | WebView2 바인딩 | Windows 내장 Edge 엔진 활용 |
@@ -16,18 +18,30 @@
 | `github.com/yuin/goldmark-highlighting` | 코드 구문 강조 | chroma 기반 |
 | `github.com/fsnotify/fsnotify` | 파일 변경 감시 | 크로스 플랫폼 파일 시스템 감시 |
 | `github.com/gorilla/websocket` | WebSocket 통신 | 실시간 새로고침용 |
-| `golang.org/x/sys/windows` | Windows API | 레지스트리, 시스템 트레이 |
-| `github.com/getlantern/systray` | 시스템 트레이 | Windows 시스템 트레이 아이콘 |
+
+### 향후 도입 예정
+
+| 라이브러리 | 용도 | 비고 |
+|-----------|------|------|
+| `golang.org/x/sys/windows` | Windows API | 레지스트리, 시스템 트레이 (SPEC-WIN-001) |
+| `github.com/getlantern/systray` | 시스템 트레이 | Windows 시스템 트레이 아이콘 (SPEC-WIN-001) |
 
 ## 프론트엔드 (WebView2 내 HTML/CSS/JS)
+
+### 구현 완료
 
 | 항목 | 선택 | 사유 |
 |------|------|------|
 | CSS | GitHub Markdown CSS | GitHub 스타일 마크다운 렌더링 |
 | 코드 하이라이트 | goldmark-highlighting (chroma) | Go 내장 구문 강조 |
-| 다이어그램 | mermaid.js (임베디드) | 다이어그램 렌더링 |
-| 수식 | KaTeX (임베디드) | 수학 수식 렌더링 |
 | 실시간 연결 | WebSocket (네이티브) | 파일 변경 시 자동 새로고침 |
+
+### 향후 도입 예정
+
+| 항목 | 선택 | 사유 |
+|------|------|------|
+| 다이어그램 | mermaid.js (임베디드) | 다이어그램 렌더링 (SPEC-RENDER-001) |
+| 수식 | KaTeX (임베디드) | 수학 수식 렌더링 (SPEC-RENDER-001) |
 
 ## 빌드 및 배포
 
