@@ -2,7 +2,7 @@
 id: SPEC-RENDER-001
 title: "Extended Rendering - KaTeX + Mermaid"
 version: 1.0.0
-status: draft
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"
@@ -226,3 +226,39 @@ var ExtensionAssets embed.FS
 - **선행**: SPEC-UI-001 (기본 마크다운 렌더링 및 WebView2 표시)
 - **필수**: SPEC-WATCH-001 (HTTP 서버 - KaTeX 폰트 로딩 필수, 실시간 미리보기 시 재렌더링)
 - **호환**: SPEC-THEME-001 (테마 변경 시 Mermaid 테마 동기화)
+
+---
+
+## 6. Implementation Notes (구현 완료 노트)
+
+완료일: 2026-03-06
+
+### 6.1 실제 구현 방식 요약
+
+KaTeX 및 Mermaid 라이브러리 파일을 `go:embed`로 바이너리에 임베딩하고, HTTP 서버에 `/static/` 라우트를 추가하여 브라우저에서 직접 접근하도록 구현하였다. HTML 템플릿에서 KaTeX CSS를 `<head>`에 먼저 로딩하여 FOUC를 방지하고, JS 파일은 `defer` 속성으로 로딩하여 초기 렌더링을 차단하지 않도록 하였다. `render-extensions.js`가 DOM 로딩 완료 후 수식 감지 및 다이어그램 초기화를 실행한다.
+
+### 6.2 계획 대비 실제 변경 사항
+
+**계획에 없었으나 추가된 파일:**
+- `internal/server/server.go`: 임베딩된 JS/CSS/폰트 파일을 브라우저에 제공하기 위한 `/static/` 라우트가 필요하여 수정하였다. 원래 계획에는 포함되지 않았으나, go:embed 파일에 HTTP를 통해 접근하려면 서버 측 라우팅이 필수적이었다.
+- `internal/server/server_test.go`: 정적 파일 서빙 라우트에 대한 테스트 추가.
+- `web/embed_test.go`: `ExtensionAssets` embed.FS 접근 테스트 추가.
+
+**계획과 달리 변경되지 않은 파일:**
+- `internal/markdown/renderer.go`: 계획에서는 goldmark 확장 설정 추가가 필요할 것으로 예상하였으나, 기존 goldmark 설정이 ` ```mermaid` 코드 블록을 이미 `<pre class="language-mermaid">` 태그로 올바르게 출력하고 있어 수정이 불필요하였다. Mermaid 렌더링은 전적으로 클라이언트 사이드 JS에서 처리한다.
+- `internal/markdown/renderer_test.go`: renderer.go는 수정하지 않았으나, mermaid 코드 블록 HTML 출력 형태를 검증하는 테스트를 추가하였다.
+
+### 6.3 테스트 커버리지
+
+전체 7개 패키지 모두 테스트 통과:
+
+| 패키지 | 커버리지 |
+|--------|---------|
+| app | 84.2% |
+| config | 88.9% |
+| markdown | 83.3% |
+| server | 89.7% |
+| viewer | 71.4% |
+| watcher | 84.7% |
+
+acceptance.md의 모든 Definition of Done 항목 충족.

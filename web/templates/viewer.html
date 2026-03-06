@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; connect-src ws://127.0.0.1:* ws://localhost:*; script-src 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' http://127.0.0.1:* http://localhost:*; img-src data: https:; connect-src ws://127.0.0.1:* ws://localhost:*; script-src 'unsafe-inline' http://127.0.0.1:* http://localhost:*; font-src http://127.0.0.1:* http://localhost:*;">
     <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/katex.min.css">
     <style>
         {{.CSS}}
         body {
@@ -15,12 +16,26 @@
             padding: 45px;
             font-size: {{.FontSize}}px;
         }
+        /* KaTeX 렌더링 오류 표시 스타일 */
+        .katex-error {
+            color: #cc0000;
+            cursor: help;
+            border-bottom: 1px dashed #cc0000;
+        }
+        /* Mermaid 다이어그램 블록 스타일 */
+        .mermaid {
+            text-align: center;
+            margin: 1em 0;
+        }
     </style>
 </head>
 <body>
     <article id="content" class="markdown-body">
         {{.Content}}
     </article>
+    <script src="/static/js/katex.min.js"></script>
+    <script src="/static/js/mermaid.min.js"></script>
+    <script src="/static/js/render-extensions.js"></script>
     <script>
     (function() {
         var reconnectDelay = 1000;
@@ -41,6 +56,10 @@
                         var savedScrollY = window.scrollY;
                         document.getElementById('content').innerHTML = msg.html;
                         window.scrollTo(0, savedScrollY);
+                        // 수학 수식과 다이어그램을 다시 렌더링한다
+                        if (typeof window.renderExtensions === 'function') {
+                            window.renderExtensions();
+                        }
                     }
                 } catch(e) {}
             };
