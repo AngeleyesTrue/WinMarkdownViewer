@@ -31,6 +31,7 @@ type templateData struct {
 	CSS      template.CSS
 	FontSize int
 	Content  template.HTML
+	Theme    string // 테마 설정: "light", "dark", "system"
 }
 
 // viewerTmpl 은 모듈 초기화 시 파싱되는 HTML 뷰어 템플릿이다.
@@ -42,6 +43,7 @@ type Server struct {
 	title    string
 	content  string
 	fontSize int
+	theme    string // 테마 설정: "light", "dark", "system"
 	clients  map[*websocket.Conn]struct{}
 	upgrader websocket.Upgrader
 	server   *http.Server
@@ -133,6 +135,24 @@ func (s *Server) SetFontSize(size int) {
 	s.fontSize = size
 }
 
+// SetTheme 은 테마를 설정한다. "light", "dark", "system" 중 하나를 지정한다.
+func (s *Server) SetTheme(theme string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.theme = theme
+}
+
+// GetTheme 은 현재 설정된 테마를 반환한다.
+// 테마가 설정되지 않은 경우 "system"을 반환한다.
+func (s *Server) GetTheme() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.theme == "" {
+		return "system"
+	}
+	return s.theme
+}
+
 // SetContent 는 현재 HTML 콘텐츠를 설정한다.
 func (s *Server) SetContent(html string) {
 	s.mu.Lock()
@@ -169,11 +189,16 @@ func (s *Server) Broadcast(html string) {
 // handleRoot 는 GET / 요청을 처리하여 viewer.html 템플릿을 렌더링한다.
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
+	theme := s.theme
+	if theme == "" {
+		theme = "system"
+	}
 	data := templateData{
 		Title:    s.title,
 		CSS:      template.CSS(web.GitHubMarkdownCSS),
 		FontSize: s.fontSize,
 		Content:  template.HTML(s.content),
+		Theme:    theme,
 	}
 	s.mu.RUnlock()
 
@@ -211,7 +236,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		conn.WriteMessage(websocket.TextMessage, msgBytes)
 	}
 
-	// 클라이언트의 메시지를 읽는 고루틴 (연결 유지 및 종료 감지)
+	// 클라이언트의 메시지를 읽는 고루틴 (연결 유지, 종료 감지, 테마 변경 수신)
 	go func() {
 		defer func() {
 			s.mu.Lock()
@@ -221,8 +246,21 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			_, msgData, err := conn.ReadMessage()
+			if err != nil {
 				return
+			}
+			// 클라이언트로부터 테마 변경 메시지를 수신한다
+			var clientMsg struct {
+				Type  string `json:"type"`
+				Value string `json:"value"`
+			}
+			if json.Unmarshal(msgData, &clientMsg) == nil && clientMsg.Type == "theme" {
+				// 허용된 테마 값만 수락한다 (XSS 방지)
+				switch clientMsg.Value {
+				case "light", "dark", "system":
+					s.SetTheme(clientMsg.Value)
+				}
 			}
 		}
 	}()

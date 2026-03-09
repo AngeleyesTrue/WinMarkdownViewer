@@ -136,6 +136,7 @@ func TestRenderGFMTaskList(t *testing.T) {
 }
 
 // TestRenderCodeBlockWithHighlighting 코드 블록 구문 강조를 검증한다.
+// CSS 클래스 기반 구문 강조가 적용되어야 한다.
 func TestRenderCodeBlockWithHighlighting(t *testing.T) {
 	input := "```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```"
 	result, err := Render([]byte(input))
@@ -143,10 +144,22 @@ func TestRenderCodeBlockWithHighlighting(t *testing.T) {
 		t.Fatalf("Render() 오류 발생: %v", err)
 	}
 
-	// 구문 강조가 적용되면 인라인 스타일 또는 chroma 클래스가 포함된다
-	hasHighlighting := strings.Contains(result, "chroma") || strings.Contains(result, "style=\"color:")
-	if !hasHighlighting {
-		t.Errorf("구문 강조가 적용되지 않음.\n결과: %s", result)
+	// CSS 클래스 기반 구문 강조가 적용되어야 한다
+	if !strings.Contains(result, "chroma") {
+		t.Errorf("chroma 래퍼 클래스가 없음.\n결과: %s", result)
+	}
+
+	// 인라인 스타일이 아닌 CSS 클래스를 사용해야 한다
+	if strings.Contains(result, "style=\"color:") {
+		t.Errorf("인라인 스타일이 사용되고 있음. CSS 클래스 기반이어야 한다.\n결과: %s", result)
+	}
+
+	// 구문 강조 CSS 클래스가 포함되어야 한다 (예: .kd = keyword declaration)
+	hasClassSpan := strings.Contains(result, `class="kd"`) ||
+		strings.Contains(result, `class="k"`) ||
+		strings.Contains(result, `class="nf"`)
+	if !hasClassSpan {
+		t.Errorf("구문 강조 CSS 클래스(kd, k, nf 등)가 없음.\n결과: %s", result)
 	}
 }
 
@@ -193,6 +206,51 @@ func TestRenderMermaidCodeBlock(t *testing.T) {
 	// 내용이 보존되어야 한다
 	if !strings.Contains(result, "graph TD") {
 		t.Errorf("mermaid 코드 블록 내용이 보존되지 않음.\n결과: %s", result)
+	}
+}
+
+// TestRenderCodeBlockCSSClassMode CSS 클래스 모드에서 다양한 언어의 구문 강조를 검증한다.
+func TestRenderCodeBlockCSSClassMode(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		contains []string // CSS 클래스 기반 요소가 포함되어야 한다
+	}{
+		{
+			name:  "Python 코드 CSS 클래스",
+			input: "```python\ndef hello():\n    print(\"world\")\n```",
+			contains: []string{
+				"chroma",
+				`class="k"`, // keyword (def)
+			},
+		},
+		{
+			name:  "JavaScript 코드 CSS 클래스",
+			input: "```javascript\nconst x = 42;\nconsole.log(x);\n```",
+			contains: []string{
+				"chroma",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := Render([]byte(tt.input))
+			if err != nil {
+				t.Fatalf("Render() 오류 발생: %v", err)
+			}
+
+			// 인라인 스타일이 없어야 한다
+			if strings.Contains(result, "style=\"color:") {
+				t.Errorf("인라인 스타일이 발견됨. CSS 클래스 기반이어야 한다.\n결과: %s", result)
+			}
+
+			for _, want := range tt.contains {
+				if !strings.Contains(result, want) {
+					t.Errorf("결과에 %q 가 포함되지 않음.\n결과: %s", want, result)
+				}
+			}
+		})
 	}
 }
 

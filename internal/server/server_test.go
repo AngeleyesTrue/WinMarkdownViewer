@@ -391,6 +391,76 @@ func TestSetFontSize_폰트크기설정(t *testing.T) {
 	}
 }
 
+// TestSetTheme_테마설정 SetTheme으로 테마를 설정하는지 검증한다.
+func TestSetTheme_테마설정(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		theme string
+	}{
+		{"라이트 테마", "light"},
+		{"다크 테마", "dark"},
+		{"시스템 테마", "system"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s.SetTheme(tt.theme)
+
+			s.mu.RLock()
+			theme := s.theme
+			s.mu.RUnlock()
+
+			if theme != tt.theme {
+				t.Errorf("theme = %q, want %q", theme, tt.theme)
+			}
+		})
+	}
+}
+
+// TestSetTheme_기본값 테마 미설정 시 handleRoot에서 기본값(system)이 사용되는지 검증한다.
+func TestSetTheme_기본값(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	// 테마를 설정하지 않고 요청
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
+	if err != nil {
+		t.Fatalf("HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("응답 본문 읽기 실패: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	// HTML 문서가 정상적으로 렌더링되어야 한다
+	if !strings.Contains(string(body), "<!DOCTYPE html>") {
+		t.Error("기본 테마에서 HTML 문서가 정상적으로 렌더링되어야 한다")
+	}
+}
+
 // TestStaticFileServing_JS정적파일 /static/ 경로로 JS 파일이 서빙되는지 검증한다.
 func TestStaticFileServing_JS정적파일(t *testing.T) {
 	t.Parallel()
@@ -568,6 +638,83 @@ func TestStaticFileServing_KaTeXFont정적파일(t *testing.T) {
 	}
 }
 
+// TestStaticFileServing_SyntaxLightCSS정적파일 구문 강조 라이트 테마 CSS가 서빙되는지 검증한다.
+func TestStaticFileServing_SyntaxLightCSS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/css/syntax-light.css", port))
+	if err != nil {
+		t.Fatalf("syntax-light.css HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("syntax-light.css 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("syntax-light.css 응답 읽기 실패: %v", err)
+	}
+
+	// 라이트 테마 CSS에 chroma 클래스가 포함되어야 한다
+	if !strings.Contains(string(body), ".chroma") {
+		t.Error("syntax-light.css에 .chroma 클래스가 포함되지 않음")
+	}
+}
+
+// TestStaticFileServing_SyntaxDarkCSS정적파일 구문 강조 다크 테마 CSS가 서빙되는지 검증한다.
+func TestStaticFileServing_SyntaxDarkCSS정적파일(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/static/css/syntax-dark.css", port))
+	if err != nil {
+		t.Fatalf("syntax-dark.css HTTP GET 실패: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("syntax-dark.css 상태 코드 = %d, want %d", resp.StatusCode, http.StatusOK)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("syntax-dark.css 응답 읽기 실패: %v", err)
+	}
+
+	// 다크 테마 CSS에 chroma 클래스가 포함되어야 한다
+	if !strings.Contains(string(body), ".chroma") {
+		t.Error("syntax-dark.css에 .chroma 클래스가 포함되지 않음")
+	}
+
+	// 다크 테마에는 prefers-color-scheme 미디어 쿼리가 포함되어야 한다
+	if !strings.Contains(string(body), "prefers-color-scheme: dark") {
+		t.Error("syntax-dark.css에 prefers-color-scheme 미디어 쿼리가 포함되지 않음")
+	}
+}
+
 // TestStaticFileServing_존재하지않는파일 존재하지 않는 정적 파일에 대해 404를 반환하는지 검증한다.
 func TestStaticFileServing_존재하지않는파일(t *testing.T) {
 	t.Parallel()
@@ -635,6 +782,60 @@ func TestGetRoot_확장렌더링통합(t *testing.T) {
 		if !strings.Contains(bodyStr, want) {
 			t.Errorf("응답에 %q 가 포함되지 않음", want)
 		}
+	}
+}
+
+// TestWebSocket_잘못된테마값거부 유효하지 않은 테마 값이 WebSocket으로 전송될 때 서버가 무시하는지 검증한다.
+func TestWebSocket_잘못된테마값거부(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	s.SetTheme("light")
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	wsURL := fmt.Sprintf("ws://127.0.0.1:%d/ws", port)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket 연결 실패: %v", err)
+	}
+	defer conn.Close()
+
+	// 초기 콘텐츠 메시지를 소비한다
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	conn.ReadMessage()
+
+	// 악의적 테마 값을 전송한다
+	invalidThemes := []string{
+		`<script>alert(1)</script>`,
+		`light"><img src=x onerror=alert(1)>`,
+		`invalid`,
+		``,
+	}
+
+	for _, invalid := range invalidThemes {
+		msg, _ := json.Marshal(struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+		}{Type: "theme", Value: invalid})
+		conn.WriteMessage(websocket.TextMessage, msg)
+	}
+
+	// 서버가 메시지를 처리할 시간을 준다
+	time.Sleep(100 * time.Millisecond)
+
+	// 테마가 변경되지 않았는지 검증한다
+	got := s.GetTheme()
+	if got != "light" {
+		t.Errorf("잘못된 테마 값으로 테마가 변경됨: %q, want %q", got, "light")
 	}
 }
 

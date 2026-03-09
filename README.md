@@ -9,6 +9,7 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **GitHub 스타일**: 임베딩된 CSS로 네트워크 없이 GitHub과 동일한 스타일 적용
 - **실시간 미리보기**: 파일 저장 시 자동으로 변경 내용 반영 (fsnotify + WebSocket)
 - **스크롤 위치 유지**: 파일 변경 시 현재 스크롤 위치를 보존하여 끊김 없는 편집 경험 제공
+- **다크 모드**: 라이트/다크/시스템 세 가지 테마 모드, 토글 버튼(우상단) 및 Ctrl+Shift+D 단축키
 - **사용자 설정**: JSON 기반 설정 시스템 (테마, 폰트 크기, 창 크기/위치 기억)
 - **수학 수식**: KaTeX 기반 인라인($...$) 및 블록($$...$$) 수학 수식 렌더링
 - **다이어그램**: Mermaid 기반 flowchart, sequence, class, state, gantt, pie 다이어그램 렌더링
@@ -76,6 +77,29 @@ winmdview.exe C:\문서\노트.md
 
 창을 닫을 때 크기와 위치가 자동 저장되며, 다음 실행 시 복원됩니다.
 
+### 테마 설정
+
+WinMarkdownViewer는 세 가지 테마 모드를 지원합니다.
+
+| 모드 | 설명 |
+|------|------|
+| `system` | OS의 다크/라이트 설정을 자동으로 따름 (기본값) |
+| `light` | 라이트 테마 고정 |
+| `dark` | 다크 테마 고정 |
+
+**테마 전환 방법**
+
+- **토글 버튼**: 뷰어 우상단의 버튼을 클릭하면 system → light → dark 순으로 순환합니다.
+- **키보드 단축키**: `Ctrl+Shift+D`로 테마를 빠르게 전환할 수 있습니다.
+
+**시스템 테마 자동 감지**
+
+`system` 모드에서는 `prefers-color-scheme` 미디어 쿼리를 통해 OS 설정 변경을 실시간으로 감지하여 자동으로 전환됩니다. Windows 설정에서 다크 모드를 켜거나 끄면 뷰어도 즉시 반영됩니다.
+
+**테마 유지**
+
+선택한 테마는 `localStorage` 및 WebSocket을 통해 Go 서버로 전달되어 `config.json`에 저장됩니다. 프로그램을 재시작해도 마지막으로 선택한 테마가 유지됩니다.
+
 ## Windows 통합
 
 ### 컨텍스트 메뉴 등록
@@ -124,8 +148,13 @@ internal/registry/registry.go      Windows 레지스트리 컨텍스트 메뉴 �
 internal/app/instance.go           Named Mutex 단일 인스턴스 관리
 internal/app/pipe.go               Named Pipe 프로세스 간 통신
 internal/tray/tray.go              시스템 트레이 관리
-web/templates/viewer.html          HTML 템플릿 (WebSocket 클라이언트 포함)
-web/css/github-markdown.css        GitHub Markdown CSS
+web/templates/viewer.html          HTML 템플릿 (WebSocket 클라이언트 + 테마 토글 버튼)
+web/css/github-markdown.css        GitHub Markdown CSS (CSS 변수 기반 테마 대응)
+web/css/theme-light.css            라이트 테마 CSS 변수 정의
+web/css/theme-dark.css             다크 테마 CSS 변수 정의
+web/css/syntax-light.css           코드 구문 강조 라이트 테마
+web/css/syntax-dark.css            코드 구문 강조 다크 테마
+web/js/theme.js                    테마 전환 로직 (시스템 감지, localStorage, WebSocket 저장)
 web/js/render-extensions.js        KaTeX 수식 + Mermaid 다이어그램 렌더링
 web/js/katex.min.js                KaTeX 렌더링 엔진 (go:embed)
 web/js/mermaid.min.js              Mermaid 렌더링 엔진 (go:embed)
