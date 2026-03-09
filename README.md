@@ -15,6 +15,9 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **오류 처리**: 파일 없음, 권한 오류, WebView2 미설치, 빈 파일 안내
 - **보안**: CSP 헤더로 XSS 방지, localhost 전용 서버 바인딩
 - **순수 Go**: CGO 없이 빌드 가능
+- **Windows 컨텍스트 메뉴**: .md 파일 우클릭 시 "마크다운 뷰어로 열기" 메뉴 등록 지원
+- **시스템 트레이**: 최소화 시 시스템 트레이로 이동, 트레이에서 복원/종료 지원
+- **단일 인스턴스**: 이미 실행 중이면 새 파일을 기존 인스턴스로 전달 (Named Pipe)
 
 ## 사전 요구 사항
 
@@ -73,6 +76,37 @@ winmdview.exe C:\문서\노트.md
 
 창을 닫을 때 크기와 위치가 자동 저장되며, 다음 실행 시 복원됩니다.
 
+## Windows 통합
+
+### 컨텍스트 메뉴 등록
+
+파일 탐색기에서 .md 파일을 우클릭하면 "마크다운 뷰어로 열기" 메뉴가 표시되도록 등록합니다.
+
+```
+winmdview.exe --register    # 컨텍스트 메뉴 등록
+winmdview.exe --unregister  # 컨텍스트 메뉴 해제
+```
+
+레지스트리는 현재 사용자 범위(HKCU)에서만 수정하므로 관리자 권한이 필요하지 않습니다.
+
+### Open With 프로그램 목록 등록
+
+.md 파일의 "연결 프로그램" 목록에 WinMarkdownViewer를 추가합니다.
+
+```
+winmdview.exe --set-default  # Open With 목록에 등록
+```
+
+### 시스템 트레이
+
+- 창을 최소화하면 태스크바에서 사라지고 시스템 트레이 아이콘으로 이동합니다.
+- 트레이 아이콘 더블클릭: 창 복원
+- 트레이 아이콘 우클릭: 컨텍스트 메뉴 (열기 / 종료)
+
+### 단일 인스턴스
+
+두 번째 실행 시 새 창을 열지 않고, Named Pipe를 통해 파일 경로를 기존 실행 중인 인스턴스로 전달합니다. 기존 인스턴스가 해당 파일로 전환하고 전면에 표시됩니다.
+
 ## 프로젝트 구조
 
 ```
@@ -86,6 +120,10 @@ internal/server/server.go          내장 HTTP 서버 + WebSocket
 internal/viewer/viewer.go          WebView2 윈도우 관리
 internal/viewer/errors.go          오류 타입 정의
 internal/watcher/watcher.go        fsnotify 기반 파일 변경 감시
+internal/registry/registry.go      Windows 레지스트리 컨텍스트 메뉴 관리
+internal/app/instance.go           Named Mutex 단일 인스턴스 관리
+internal/app/pipe.go               Named Pipe 프로세스 간 통신
+internal/tray/tray.go              시스템 트레이 관리
 web/templates/viewer.html          HTML 템플릿 (WebSocket 클라이언트 포함)
 web/css/github-markdown.css        GitHub Markdown CSS
 web/js/render-extensions.js        KaTeX 수식 + Mermaid 다이어그램 렌더링
@@ -94,6 +132,8 @@ web/js/mermaid.min.js              Mermaid 렌더링 엔진 (go:embed)
 web/css/katex.min.css              KaTeX 수학 스타일시트
 web/fonts/                         KaTeX 수학 폰트 (woff2)
 web/embed.go                       go:embed 선언
+assets/icon.ico                    트레이/컨텍스트 메뉴 아이콘
+assets/embed.go                    아이콘 리소스 임베딩
 ```
 
 ## 기술 스택
@@ -106,6 +146,8 @@ web/embed.go                       go:embed 선언
 | 파일 감시 | github.com/fsnotify/fsnotify |
 | WebSocket | github.com/gorilla/websocket |
 | 정적 리소스 | Go 표준 go:embed |
+| Windows API | golang.org/x/sys/windows |
+| 시스템 트레이 | github.com/energye/systray |
 | 수학 수식 | KaTeX v0.16.x |
 | 다이어그램 | Mermaid v10.x |
 

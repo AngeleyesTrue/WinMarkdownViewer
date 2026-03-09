@@ -2,7 +2,7 @@
 id: SPEC-WIN-001
 title: "Windows Integration - Context Menu, System Tray, Single Instance"
 version: 1.0.0
-status: draft
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"
@@ -215,3 +215,39 @@ WinMarkdownViewer/
 | REQ-O-001 | internal/registry/registry.go | - |
 | REQ-O-002 | internal/tray/tray.go | - |
 | REQ-O-003 | internal/registry/registry.go | - |
+
+---
+
+## Implementation Notes
+
+### 구현 완료 요약 (2026-03-06)
+
+**구현된 기능:**
+- REQ-E-001 ~ REQ-E-008: 컨텍스트 메뉴 등록/해제, 시스템 트레이, 단일 인스턴스 전체 구현
+- REQ-U-001 ~ REQ-U-003: HKCU 전용, 트레이 툴팁, Named Mutex 이름 준수
+- REQ-N-001 ~ REQ-N-004: 금지 행위 전체 준수
+- REQ-S-001 ~ REQ-S-004: 상태 기반 요구사항 전체 구현
+- REQ-O-001: Open With 프로그램 선택 목록 등록 지원 (--set-default)
+
+**계획 대비 변경사항:**
+- 레지스트리 경로를 `HKCU\Software\Classes\.md\shell\` 에서 `HKCU\Software\Classes\SystemFileAssociations\.md\shell\`로 변경 (Windows 최신 파일 연결 모범 사례 적용)
+- `internal/app/constants.go` 추가 (리팩토링 단계에서 공통 상수 분리)
+- `internal/viewer/viewer.go` 확장 (트레이 최소화/복원 지원)
+
+**보안 강화 (2026-03-09):**
+- Registry `validateExePath()` 추가: 빈 경로, null 바이트, 상대 경로 거부
+- Pipe 입력 검증: null 바이트 트리밍, `filepath.Clean`, `filepath.IsAbs`, `os.Stat` 검증
+- ListenPipe 지수 백오프: 100ms~5s 백오프 + 연속 에러 10회 제한으로 리소스 고갈 방지
+- errgroup 고루틴 관리: 파일 감시, Named Pipe, 시스템 트레이 고루틴을 errgroup으로 조율
+- `golang.org/x/sync` 의존성 추가
+
+**테스트 결과:**
+- 전체 테스트: 8 패키지 통과
+- 커버리지: internal/app 85.3%, internal/registry 83.1%, internal/config 88.9%, internal/server 89.5%
+- go vet: 클린
+- CGO: 미사용 (순수 Go 빌드)
+
+**제한사항:**
+- CGO 비활성으로 `-race` 플래그 테스트 불가
+- `internal/tray` 커버리지 32.0% (GUI 의존 코드)
+- `cmd/winmdview` 커버리지 5.9% (통합 테스트 한계)

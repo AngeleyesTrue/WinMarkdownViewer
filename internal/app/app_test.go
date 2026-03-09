@@ -269,3 +269,47 @@ func TestValidateFileValidMarkdown(t *testing.T) {
 		t.Fatalf("정상 파일 검증 실패: %v", err)
 	}
 }
+
+// TestValidateFile_잘못된경로 는 null 문자가 포함된 잘못된 파일 경로에서
+// "파일 접근 오류" 에러를 반환하는지 검증한다.
+// Windows에서 os.Stat에 null 문자 포함 경로를 전달하면
+// IsNotExist도 IsPermission도 아닌 에러가 발생한다.
+func TestValidateFile_잘못된경로(t *testing.T) {
+	// null 문자가 포함된 잘못된 경로
+	invalidPath := "test\x00invalid.md"
+	err := ValidateFile(invalidPath)
+	if err == nil {
+		t.Fatal("잘못된 경로에 대해 에러가 반환되어야 한다")
+	}
+	if !strings.Contains(err.Error(), "파일 접근 오류") {
+		t.Errorf("에러 메시지에 '파일 접근 오류'가 포함되어야 함: %v", err)
+	}
+}
+
+// TestReadFile_잘못된경로 는 null 문자가 포함된 경로로 ReadFile을 호출했을 때
+// 적절한 에러를 반환하는지 검증한다.
+func TestReadFile_잘못된경로(t *testing.T) {
+	invalidPath := "test\x00invalid.md"
+	_, err := ReadFile(invalidPath)
+	if err == nil {
+		t.Fatal("잘못된 경로에 대해 에러가 반환되어야 한다")
+	}
+}
+
+// TestRenderPipeline_잘못된경로 는 잘못된 파일 경로로 RenderPipeline 호출 시
+// 적절한 에러를 반환하는지 검증한다.
+func TestRenderPipeline_잘못된경로(t *testing.T) {
+	_, err := RenderPipeline("test\x00invalid.md")
+	if err == nil {
+		t.Fatal("잘못된 경로에 대해 에러가 반환되어야 한다")
+	}
+}
+
+// TestRenderMarkdown_잘못된경로 는 잘못된 파일 경로로 RenderMarkdown 호출 시
+// 적절한 에러를 반환하는지 검증한다.
+func TestRenderMarkdown_잘못된경로(t *testing.T) {
+	_, err := RenderMarkdown("test\x00invalid.md")
+	if err == nil {
+		t.Fatal("잘못된 경로에 대해 에러가 반환되어야 한다")
+	}
+}

@@ -18,13 +18,8 @@
 | `github.com/yuin/goldmark-highlighting` | 코드 구문 강조 | chroma 기반 |
 | `github.com/fsnotify/fsnotify` | 파일 변경 감시 | 크로스 플랫폼 파일 시스템 감시 |
 | `github.com/gorilla/websocket` | WebSocket 통신 | 실시간 새로고침용 |
-
-### 향후 도입 예정
-
-| 라이브러리 | 용도 | 비고 |
-|-----------|------|------|
-| `golang.org/x/sys/windows` | Windows API | 레지스트리, 시스템 트레이 (SPEC-WIN-001) |
-| `github.com/getlantern/systray` | 시스템 트레이 | Windows 시스템 트레이 아이콘 (SPEC-WIN-001) |
+| `golang.org/x/sys/windows` | Windows API | 레지스트리, Named Mutex, Named Pipe (SPEC-WIN-001) |
+| `github.com/energye/systray` | 시스템 트레이 | Pure Go 구현, CGO 불필요 (SPEC-WIN-001) |
 
 ## 프론트엔드 (WebView2 내 HTML/CSS/JS)
 
