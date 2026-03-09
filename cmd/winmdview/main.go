@@ -12,6 +12,7 @@ import (
 	"time"
 	"unsafe"
 
+	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows"
 
 	"github.com/AngeleyesTrue/WinMarkdownViewer/assets"
@@ -205,17 +206,28 @@ func run() int {
 	ctx, cancel := context.WithCancel(context.Background())
 	changes := w.Watch(ctx)
 
+	// errgroup으로 고루틴 생명주기 관리
+	eg, egCtx := errgroup.WithContext(ctx)
+
 	// 파일 변경 이벤트 -> 재렌더링 -> Broadcast 고루틴
-	go func() {
-		for range changes {
-			newHTML, renderErr := app.RenderMarkdown(absPath)
-			if renderErr != nil {
-				srv.Broadcast(fmt.Sprintf("<p style='color:red;'>렌더링 오류: %v</p>", renderErr))
-				continue
+	eg.Go(func() error {
+		for {
+			select {
+			case <-egCtx.Done():
+				return nil
+			case _, ok := <-changes:
+				if !ok {
+					return nil // 채널 닫힘
+				}
+				newHTML, renderErr := app.RenderMarkdown(absPath)
+				if renderErr != nil {
+					srv.Broadcast(fmt.Sprintf("<p style='color:red;'>렌더링 오류: %v</p>", renderErr))
+					continue
+				}
+				srv.Broadcast(newHTML)
 			}
-			srv.Broadcast(newHTML)
 		}
-	}()
+	})
 
 	// 10. WebView2 윈도우 생성
 	viewerCfg := viewer.Config{
@@ -238,18 +250,23 @@ func run() int {
 	v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", port))
 
 	// 12. Named Pipe 서버 시작 (다른 인스턴스로부터 파일 경로 수신)
-	go app.ListenPipe(ctx, func(newPath string) {
-		switchFile(newPath, srv, w, v)
+	eg.Go(func() error {
+		return app.ListenPipe(egCtx, func(newPath string) {
+			switchFile(newPath, srv, w, v)
+		})
 	})
 
-	// 13. 시스템 트레이 시작 (별도 고루틴에서 실행)
+	// 13. 시스템 트레이 시작
 	hwnd := windows.HWND(uintptr(v.Window()))
 	trayInst, trayErr := tray.NewTray(assets.IconData)
 	if trayErr == nil {
-		go trayInst.Run(
-			func() { showWindow(hwnd) },
-			func() { v.Terminate() },
-		)
+		eg.Go(func() error {
+			trayInst.Run(
+				func() { showWindow(hwnd) },
+				func() { v.Terminate() },
+			)
+			return nil
+		})
 	}
 
 	// 14. 윈도우 서브클래싱: 최소화 시 트레이로 숨기기
@@ -270,6 +287,10 @@ func run() int {
 
 	cancel()
 	w.Close()
+
+	// 모든 고루틴 종료 대기
+	_ = eg.Wait()
+
 	v.Destroy()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)

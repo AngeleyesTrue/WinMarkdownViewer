@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -14,11 +16,17 @@ import (
 
 // @MX:NOTE: [AUTO] ListenPipe는 context 취소 시 CancelIoEx로 대기 중인 ConnectNamedPipe를 중단한다.
 
+// maxConsecutiveErrors 는 연속 에러 발생 시 최대 허용 횟수이다.
+const maxConsecutiveErrors = 10
+
 // ListenPipe 는 Named Pipe 서버를 시작하여 클라이언트로부터 파일 경로를 수신한다.
 // ctx 취소 시 서버를 종료한다.
 // handler 는 유효한 파일 경로를 수신할 때마다 호출된다.
 // 유효하지 않은 데이터 (빈 문자열, 존재하지 않는 파일)는 무시한다 (ACC-011).
 func ListenPipe(ctx context.Context, handler func(filePath string)) error {
+	var backoff time.Duration = 100 * time.Millisecond
+	var consecutiveErrors int
+
 	for {
 		// context 확인
 		select {
@@ -32,9 +40,26 @@ func ListenPipe(ctx context.Context, handler func(filePath string)) error {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
-			// 기타 에러는 로그 후 계속 시도
+
+			consecutiveErrors++
+			log.Printf("파이프 리슨 에러 (%d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
+
+			if consecutiveErrors >= maxConsecutiveErrors {
+				return fmt.Errorf("파이프 복구 실패 (연속 %d회 에러): %w", consecutiveErrors, err)
+			}
+
+			// 지수 백오프 + 지터
+			jitter := time.Duration(rand.IntN(int(backoff / 2)))
+			time.Sleep(backoff + jitter)
+			if backoff < 5*time.Second {
+				backoff *= 2
+			}
 			continue
 		}
+
+		// 성공 시 리셋
+		consecutiveErrors = 0
+		backoff = 100 * time.Millisecond
 	}
 }
 

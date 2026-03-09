@@ -234,13 +234,20 @@ WinMarkdownViewer/
 - `internal/app/constants.go` 추가 (리팩토링 단계에서 공통 상수 분리)
 - `internal/viewer/viewer.go` 확장 (트레이 최소화/복원 지원)
 
+**보안 강화 (2026-03-09):**
+- Registry `validateExePath()` 추가: 빈 경로, null 바이트, 상대 경로 거부
+- Pipe 입력 검증: null 바이트 트리밍, `filepath.Clean`, `filepath.IsAbs`, `os.Stat` 검증
+- ListenPipe 지수 백오프: 100ms~5s 백오프 + 연속 에러 10회 제한으로 리소스 고갈 방지
+- errgroup 고루틴 관리: 파일 감시, Named Pipe, 시스템 트레이 고루틴을 errgroup으로 조율
+- `golang.org/x/sync` 의존성 추가
+
 **테스트 결과:**
-- 전체 테스트: 11 패키지 통과
-- 커버리지: internal/app 86.2%, internal/registry 80.6%
+- 전체 테스트: 8 패키지 통과
+- 커버리지: internal/app 85.3%, internal/registry 83.1%, internal/config 88.9%, internal/server 89.5%
 - go vet: 클린
 - CGO: 미사용 (순수 Go 빌드)
 
 **제한사항:**
 - CGO 비활성으로 `-race` 플래그 테스트 불가
 - `internal/tray` 커버리지 32.0% (GUI 의존 코드)
-- `cmd/winmdview` 커버리지 6.2% (통합 테스트 한계)
+- `cmd/winmdview` 커버리지 5.9% (통합 테스트 한계)
