@@ -1,0 +1,280 @@
+/* syntax-light.css - 라이트 테마용 chroma 구문 강조 CSS */
+/* chroma "github" 스타일 기반, data-theme 셀렉터로 스코핑 */
+
+html[data-theme="light"] .chroma,
+html[data-theme="system"] .chroma {
+  background-color: #f6f8fa;
+}
+
+html[data-theme="light"] .chroma .err,
+html[data-theme="system"] .chroma .err {
+  color: #a61717;
+  background-color: #e3d2d2;
+}
+
+/* 라인 하이라이트 */
+html[data-theme="light"] .chroma .hl,
+html[data-theme="system"] .chroma .hl {
+  background-color: #e5e5e5;
+}
+
+/* 라인 번호 */
+html[data-theme="light"] .chroma .lnt,
+html[data-theme="light"] .chroma .ln,
+html[data-theme="system"] .chroma .lnt,
+html[data-theme="system"] .chroma .ln {
+  color: #7f7f7f;
+}
+
+/* 키워드 */
+html[data-theme="light"] .chroma .k,
+html[data-theme="light"] .chroma .kc,
+html[data-theme="light"] .chroma .kd,
+html[data-theme="light"] .chroma .kn,
+html[data-theme="light"] .chroma .kp,
+html[data-theme="light"] .chroma .kr,
+html[data-theme="system"] .chroma .k,
+html[data-theme="system"] .chroma .kc,
+html[data-theme="system"] .chroma .kd,
+html[data-theme="system"] .chroma .kn,
+html[data-theme="system"] .chroma .kp,
+html[data-theme="system"] .chroma .kr {
+  color: #cf222e;
+  font-weight: bold;
+}
+
+/* 키워드 타입 */
+html[data-theme="light"] .chroma .kt,
+html[data-theme="system"] .chroma .kt {
+  color: #cf222e;
+  font-weight: bold;
+}
+
+/* 이름 - 속성 */
+html[data-theme="light"] .chroma .na,
+html[data-theme="system"] .chroma .na {
+  color: #0550ae;
+}
+
+/* 이름 - 내장 */
+html[data-theme="light"] .chroma .nb,
+html[data-theme="system"] .chroma .nb {
+  color: #0550ae;
+}
+
+/* 이름 - 내장 의사 */
+html[data-theme="light"] .chroma .bp,
+html[data-theme="system"] .chroma .bp {
+  color: #6e7781;
+}
+
+/* 이름 - 클래스 */
+html[data-theme="light"] .chroma .nc,
+html[data-theme="system"] .chroma .nc {
+  color: #8250df;
+  font-weight: bold;
+}
+
+/* 이름 - 상수 */
+html[data-theme="light"] .chroma .no,
+html[data-theme="system"] .chroma .no {
+  color: #0550ae;
+}
+
+/* 이름 - 데코레이터 */
+html[data-theme="light"] .chroma .nd,
+html[data-theme="system"] .chroma .nd {
+  color: #8250df;
+  font-weight: bold;
+}
+
+/* 이름 - 엔티티 */
+html[data-theme="light"] .chroma .ni,
+html[data-theme="system"] .chroma .ni {
+  color: #8250df;
+}
+
+/* 이름 - 예외 */
+html[data-theme="light"] .chroma .ne,
+html[data-theme="system"] .chroma .ne {
+  color: #cf222e;
+  font-weight: bold;
+}
+
+/* 이름 - 함수 */
+html[data-theme="light"] .chroma .nf,
+html[data-theme="system"] .chroma .nf {
+  color: #8250df;
+  font-weight: bold;
+}
+
+/* 이름 - 레이블 */
+html[data-theme="light"] .chroma .nl,
+html[data-theme="system"] .chroma .nl {
+  color: #0550ae;
+  font-weight: bold;
+}
+
+/* 이름 - 네임스페이스 */
+html[data-theme="light"] .chroma .nn,
+html[data-theme="system"] .chroma .nn {
+  color: #6e7781;
+}
+
+/* 이름 - 태그 */
+html[data-theme="light"] .chroma .nt,
+html[data-theme="system"] .chroma .nt {
+  color: #116329;
+}
+
+/* 이름 - 변수 */
+html[data-theme="light"] .chroma .nv,
+html[data-theme="light"] .chroma .vc,
+html[data-theme="light"] .chroma .vg,
+html[data-theme="light"] .chroma .vi,
+html[data-theme="system"] .chroma .nv,
+html[data-theme="system"] .chroma .vc,
+html[data-theme="system"] .chroma .vg,
+html[data-theme="system"] .chroma .vi {
+  color: #0550ae;
+}
+
+/* 문자열 */
+html[data-theme="light"] .chroma .s,
+html[data-theme="light"] .chroma .sa,
+html[data-theme="light"] .chroma .sb,
+html[data-theme="light"] .chroma .sc,
+html[data-theme="light"] .chroma .dl,
+html[data-theme="light"] .chroma .sd,
+html[data-theme="light"] .chroma .s2,
+html[data-theme="light"] .chroma .se,
+html[data-theme="light"] .chroma .sh,
+html[data-theme="light"] .chroma .si,
+html[data-theme="light"] .chroma .sx,
+html[data-theme="light"] .chroma .s1,
+html[data-theme="light"] .chroma .ss,
+html[data-theme="system"] .chroma .s,
+html[data-theme="system"] .chroma .sa,
+html[data-theme="system"] .chroma .sb,
+html[data-theme="system"] .chroma .sc,
+html[data-theme="system"] .chroma .dl,
+html[data-theme="system"] .chroma .sd,
+html[data-theme="system"] .chroma .s2,
+html[data-theme="system"] .chroma .se,
+html[data-theme="system"] .chroma .sh,
+html[data-theme="system"] .chroma .si,
+html[data-theme="system"] .chroma .sx,
+html[data-theme="system"] .chroma .s1,
+html[data-theme="system"] .chroma .ss {
+  color: #0a3069;
+}
+
+/* 문자열 - 정규식 */
+html[data-theme="light"] .chroma .sr,
+html[data-theme="system"] .chroma .sr {
+  color: #116329;
+}
+
+/* 숫자 */
+html[data-theme="light"] .chroma .m,
+html[data-theme="light"] .chroma .mb,
+html[data-theme="light"] .chroma .mf,
+html[data-theme="light"] .chroma .mh,
+html[data-theme="light"] .chroma .mi,
+html[data-theme="light"] .chroma .il,
+html[data-theme="light"] .chroma .mo,
+html[data-theme="system"] .chroma .m,
+html[data-theme="system"] .chroma .mb,
+html[data-theme="system"] .chroma .mf,
+html[data-theme="system"] .chroma .mh,
+html[data-theme="system"] .chroma .mi,
+html[data-theme="system"] .chroma .il,
+html[data-theme="system"] .chroma .mo {
+  color: #0550ae;
+}
+
+/* 연산자 */
+html[data-theme="light"] .chroma .o,
+html[data-theme="light"] .chroma .ow,
+html[data-theme="system"] .chroma .o,
+html[data-theme="system"] .chroma .ow {
+  color: #0550ae;
+  font-weight: bold;
+}
+
+/* 주석 */
+html[data-theme="light"] .chroma .c,
+html[data-theme="light"] .chroma .ch,
+html[data-theme="light"] .chroma .cm,
+html[data-theme="light"] .chroma .c1,
+html[data-theme="light"] .chroma .cs,
+html[data-theme="light"] .chroma .cp,
+html[data-theme="light"] .chroma .cpf,
+html[data-theme="system"] .chroma .c,
+html[data-theme="system"] .chroma .ch,
+html[data-theme="system"] .chroma .cm,
+html[data-theme="system"] .chroma .c1,
+html[data-theme="system"] .chroma .cs,
+html[data-theme="system"] .chroma .cp,
+html[data-theme="system"] .chroma .cpf {
+  color: #6e7781;
+  font-style: italic;
+}
+
+/* Generic - 삭제된 라인 */
+html[data-theme="light"] .chroma .gd,
+html[data-theme="system"] .chroma .gd {
+  color: #82071e;
+  background-color: #ffebe9;
+}
+
+/* Generic - 추가된 라인 */
+html[data-theme="light"] .chroma .gi,
+html[data-theme="system"] .chroma .gi {
+  color: #116329;
+  background-color: #dafbe1;
+}
+
+/* Generic - 기타 */
+html[data-theme="light"] .chroma .ge,
+html[data-theme="system"] .chroma .ge {
+  font-style: italic;
+}
+
+html[data-theme="light"] .chroma .gs,
+html[data-theme="system"] .chroma .gs {
+  font-weight: bold;
+}
+
+html[data-theme="light"] .chroma .gl,
+html[data-theme="system"] .chroma .gl {
+  text-decoration: underline;
+}
+
+/* 공백 */
+html[data-theme="light"] .chroma .w,
+html[data-theme="system"] .chroma .w {
+  color: #bbbbbb;
+}
+
+/* 라인 관련 공통 */
+html[data-theme="light"] .chroma .lntd,
+html[data-theme="system"] .chroma .lntd {
+  vertical-align: top;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+html[data-theme="light"] .chroma .lntable,
+html[data-theme="system"] .chroma .lntable {
+  border-spacing: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+html[data-theme="light"] .chroma .line,
+html[data-theme="system"] .chroma .line {
+  display: flex;
+}

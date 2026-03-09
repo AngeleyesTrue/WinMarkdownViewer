@@ -31,6 +31,7 @@ type templateData struct {
 	CSS      template.CSS
 	FontSize int
 	Content  template.HTML
+	Theme    string // 테마 설정: "light", "dark", "system"
 }
 
 // viewerTmpl 은 모듈 초기화 시 파싱되는 HTML 뷰어 템플릿이다.
@@ -42,6 +43,7 @@ type Server struct {
 	title    string
 	content  string
 	fontSize int
+	theme    string // 테마 설정: "light", "dark", "system"
 	clients  map[*websocket.Conn]struct{}
 	upgrader websocket.Upgrader
 	server   *http.Server
@@ -133,6 +135,13 @@ func (s *Server) SetFontSize(size int) {
 	s.fontSize = size
 }
 
+// SetTheme 은 테마를 설정한다. "light", "dark", "system" 중 하나를 지정한다.
+func (s *Server) SetTheme(theme string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.theme = theme
+}
+
 // SetContent 는 현재 HTML 콘텐츠를 설정한다.
 func (s *Server) SetContent(html string) {
 	s.mu.Lock()
@@ -169,11 +178,16 @@ func (s *Server) Broadcast(html string) {
 // handleRoot 는 GET / 요청을 처리하여 viewer.html 템플릿을 렌더링한다.
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
+	theme := s.theme
+	if theme == "" {
+		theme = "system"
+	}
 	data := templateData{
 		Title:    s.title,
 		CSS:      template.CSS(web.GitHubMarkdownCSS),
 		FontSize: s.fontSize,
 		Content:  template.HTML(s.content),
+		Theme:    theme,
 	}
 	s.mu.RUnlock()
 

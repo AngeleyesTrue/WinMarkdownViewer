@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" data-theme="{{.Theme}}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,14 +28,20 @@
             margin: 1em 0;
         }
     </style>
+    <link rel="stylesheet" href="/static/css/theme-light.css">
+    <link rel="stylesheet" href="/static/css/theme-dark.css">
+    <link rel="stylesheet" href="/static/css/syntax-light.css">
+    <link rel="stylesheet" href="/static/css/syntax-dark.css">
 </head>
 <body>
+    <button id="theme-toggle" title="System" style="position:fixed;top:12px;right:12px;z-index:1000;background:var(--color-canvas-subtle,#f6f8fa);border:1px solid var(--color-border-default,#d0d7de);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;color:var(--color-fg-default,#1f2328);transition:background-color 0.25s ease,border-color 0.25s ease,color 0.25s ease;">&#x1F5A5;</button>
     <article id="content" class="markdown-body">
         {{.Content}}
     </article>
     <script src="/static/js/katex.min.js"></script>
     <script src="/static/js/mermaid.min.js"></script>
     <script src="/static/js/render-extensions.js"></script>
+    <script src="/static/js/theme.js"></script>
     <script>
     (function() {
         var reconnectDelay = 1000;

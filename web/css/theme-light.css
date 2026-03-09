@@ -1,0 +1,21 @@
+/* theme-light.css - 라이트 테마 CSS Custom Properties */
+/* 기존 github-markdown.css의 하드코딩된 색상값과 동일한 시각적 결과를 보장 */
+
+/* 라이트 테마 기본 적용 및 명시적 선택 */
+html[data-theme="light"],
+html[data-theme="system"] {
+  --color-canvas-default: #ffffff;
+  --color-canvas-subtle: #f6f8fa;
+  --color-fg-default: #1f2328;
+  --color-fg-muted: #656d76;
+  --color-accent-fg: #0969da;
+  --color-border-default: #d0d7de;
+  --color-border-muted: #d8dee4;
+  --color-neutral-muted: rgba(175, 184, 193, 0.2);
+}
+
+html[data-theme="light"] body,
+html[data-theme="system"] body {
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}

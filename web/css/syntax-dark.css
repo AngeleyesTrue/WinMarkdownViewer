@@ -1,0 +1,382 @@
+/* syntax-dark.css - 다크 테마용 chroma 구문 강조 CSS */
+/* GitHub Dark 색상 기반, data-theme 셀렉터로 스코핑 */
+
+html[data-theme="dark"] .chroma {
+  color: #e6edf3;
+  background-color: #161b22;
+}
+
+html[data-theme="dark"] .chroma .err {
+  color: #f85149;
+}
+
+/* 라인 하이라이트 */
+html[data-theme="dark"] .chroma .hl {
+  background-color: #264f78;
+}
+
+/* 라인 번호 */
+html[data-theme="dark"] .chroma .lnt,
+html[data-theme="dark"] .chroma .ln {
+  color: #6e7681;
+}
+
+/* 키워드 */
+html[data-theme="dark"] .chroma .k,
+html[data-theme="dark"] .chroma .kc,
+html[data-theme="dark"] .chroma .kd,
+html[data-theme="dark"] .chroma .kn,
+html[data-theme="dark"] .chroma .kp,
+html[data-theme="dark"] .chroma .kr {
+  color: #ff7b72;
+  font-weight: bold;
+}
+
+/* 키워드 타입 */
+html[data-theme="dark"] .chroma .kt {
+  color: #ff7b72;
+  font-weight: bold;
+}
+
+/* 이름 - 속성 */
+html[data-theme="dark"] .chroma .na {
+  color: #79c0ff;
+}
+
+/* 이름 - 내장 */
+html[data-theme="dark"] .chroma .nb {
+  color: #79c0ff;
+}
+
+/* 이름 - 내장 의사 */
+html[data-theme="dark"] .chroma .bp {
+  color: #8b949e;
+}
+
+/* 이름 - 클래스 */
+html[data-theme="dark"] .chroma .nc {
+  color: #d2a8ff;
+  font-weight: bold;
+}
+
+/* 이름 - 상수 */
+html[data-theme="dark"] .chroma .no {
+  color: #79c0ff;
+}
+
+/* 이름 - 데코레이터 */
+html[data-theme="dark"] .chroma .nd {
+  color: #d2a8ff;
+  font-weight: bold;
+}
+
+/* 이름 - 엔티티 */
+html[data-theme="dark"] .chroma .ni {
+  color: #d2a8ff;
+}
+
+/* 이름 - 예외 */
+html[data-theme="dark"] .chroma .ne {
+  color: #f85149;
+  font-weight: bold;
+}
+
+/* 이름 - 함수 */
+html[data-theme="dark"] .chroma .nf {
+  color: #d2a8ff;
+  font-weight: bold;
+}
+
+/* 이름 - 레이블 */
+html[data-theme="dark"] .chroma .nl {
+  color: #79c0ff;
+  font-weight: bold;
+}
+
+/* 이름 - 네임스페이스 */
+html[data-theme="dark"] .chroma .nn {
+  color: #8b949e;
+}
+
+/* 이름 - 태그 */
+html[data-theme="dark"] .chroma .nt {
+  color: #7ee787;
+}
+
+/* 이름 - 변수 */
+html[data-theme="dark"] .chroma .nv,
+html[data-theme="dark"] .chroma .vc,
+html[data-theme="dark"] .chroma .vg,
+html[data-theme="dark"] .chroma .vi {
+  color: #79c0ff;
+}
+
+/* 문자열 */
+html[data-theme="dark"] .chroma .s,
+html[data-theme="dark"] .chroma .sa,
+html[data-theme="dark"] .chroma .sb,
+html[data-theme="dark"] .chroma .sc,
+html[data-theme="dark"] .chroma .dl,
+html[data-theme="dark"] .chroma .sd,
+html[data-theme="dark"] .chroma .s2,
+html[data-theme="dark"] .chroma .se,
+html[data-theme="dark"] .chroma .sh,
+html[data-theme="dark"] .chroma .si,
+html[data-theme="dark"] .chroma .sx,
+html[data-theme="dark"] .chroma .s1,
+html[data-theme="dark"] .chroma .ss {
+  color: #a5d6ff;
+}
+
+/* 문자열 - 정규식 */
+html[data-theme="dark"] .chroma .sr {
+  color: #7ee787;
+}
+
+/* 숫자 */
+html[data-theme="dark"] .chroma .m,
+html[data-theme="dark"] .chroma .mb,
+html[data-theme="dark"] .chroma .mf,
+html[data-theme="dark"] .chroma .mh,
+html[data-theme="dark"] .chroma .mi,
+html[data-theme="dark"] .chroma .il,
+html[data-theme="dark"] .chroma .mo {
+  color: #79c0ff;
+}
+
+/* 연산자 */
+html[data-theme="dark"] .chroma .o,
+html[data-theme="dark"] .chroma .ow {
+  color: #79c0ff;
+  font-weight: bold;
+}
+
+/* 주석 */
+html[data-theme="dark"] .chroma .c,
+html[data-theme="dark"] .chroma .ch,
+html[data-theme="dark"] .chroma .cm,
+html[data-theme="dark"] .chroma .c1,
+html[data-theme="dark"] .chroma .cs,
+html[data-theme="dark"] .chroma .cp,
+html[data-theme="dark"] .chroma .cpf {
+  color: #8b949e;
+  font-style: italic;
+}
+
+/* Generic - 삭제된 라인 */
+html[data-theme="dark"] .chroma .gd {
+  color: #ffa198;
+  background-color: #490202;
+}
+
+/* Generic - 추가된 라인 */
+html[data-theme="dark"] .chroma .gi {
+  color: #7ee787;
+  background-color: #04260f;
+}
+
+/* Generic - 기타 */
+html[data-theme="dark"] .chroma .ge {
+  font-style: italic;
+}
+
+html[data-theme="dark"] .chroma .gs {
+  font-weight: bold;
+}
+
+html[data-theme="dark"] .chroma .gl {
+  text-decoration: underline;
+}
+
+/* 공백 */
+html[data-theme="dark"] .chroma .w {
+  color: #6e7681;
+}
+
+/* 라인 관련 공통 */
+html[data-theme="dark"] .chroma .lntd {
+  vertical-align: top;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+html[data-theme="dark"] .chroma .lntable {
+  border-spacing: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+html[data-theme="dark"] .chroma .line {
+  display: flex;
+}
+
+/* 시스템 테마 다크 모드 대응 */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] .chroma {
+    color: #e6edf3;
+    background-color: #161b22;
+  }
+
+  html[data-theme="system"] .chroma .err {
+    color: #f85149;
+  }
+
+  html[data-theme="system"] .chroma .hl {
+    background-color: #264f78;
+  }
+
+  html[data-theme="system"] .chroma .lnt,
+  html[data-theme="system"] .chroma .ln {
+    color: #6e7681;
+  }
+
+  html[data-theme="system"] .chroma .k,
+  html[data-theme="system"] .chroma .kc,
+  html[data-theme="system"] .chroma .kd,
+  html[data-theme="system"] .chroma .kn,
+  html[data-theme="system"] .chroma .kp,
+  html[data-theme="system"] .chroma .kr {
+    color: #ff7b72;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .kt {
+    color: #ff7b72;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .na {
+    color: #79c0ff;
+  }
+
+  html[data-theme="system"] .chroma .nb {
+    color: #79c0ff;
+  }
+
+  html[data-theme="system"] .chroma .bp {
+    color: #8b949e;
+  }
+
+  html[data-theme="system"] .chroma .nc {
+    color: #d2a8ff;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .no {
+    color: #79c0ff;
+  }
+
+  html[data-theme="system"] .chroma .nd {
+    color: #d2a8ff;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .ni {
+    color: #d2a8ff;
+  }
+
+  html[data-theme="system"] .chroma .ne {
+    color: #f85149;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .nf {
+    color: #d2a8ff;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .nl {
+    color: #79c0ff;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .nn {
+    color: #8b949e;
+  }
+
+  html[data-theme="system"] .chroma .nt {
+    color: #7ee787;
+  }
+
+  html[data-theme="system"] .chroma .nv,
+  html[data-theme="system"] .chroma .vc,
+  html[data-theme="system"] .chroma .vg,
+  html[data-theme="system"] .chroma .vi {
+    color: #79c0ff;
+  }
+
+  html[data-theme="system"] .chroma .s,
+  html[data-theme="system"] .chroma .sa,
+  html[data-theme="system"] .chroma .sb,
+  html[data-theme="system"] .chroma .sc,
+  html[data-theme="system"] .chroma .dl,
+  html[data-theme="system"] .chroma .sd,
+  html[data-theme="system"] .chroma .s2,
+  html[data-theme="system"] .chroma .se,
+  html[data-theme="system"] .chroma .sh,
+  html[data-theme="system"] .chroma .si,
+  html[data-theme="system"] .chroma .sx,
+  html[data-theme="system"] .chroma .s1,
+  html[data-theme="system"] .chroma .ss {
+    color: #a5d6ff;
+  }
+
+  html[data-theme="system"] .chroma .sr {
+    color: #7ee787;
+  }
+
+  html[data-theme="system"] .chroma .m,
+  html[data-theme="system"] .chroma .mb,
+  html[data-theme="system"] .chroma .mf,
+  html[data-theme="system"] .chroma .mh,
+  html[data-theme="system"] .chroma .mi,
+  html[data-theme="system"] .chroma .il,
+  html[data-theme="system"] .chroma .mo {
+    color: #79c0ff;
+  }
+
+  html[data-theme="system"] .chroma .o,
+  html[data-theme="system"] .chroma .ow {
+    color: #79c0ff;
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .c,
+  html[data-theme="system"] .chroma .ch,
+  html[data-theme="system"] .chroma .cm,
+  html[data-theme="system"] .chroma .c1,
+  html[data-theme="system"] .chroma .cs,
+  html[data-theme="system"] .chroma .cp,
+  html[data-theme="system"] .chroma .cpf {
+    color: #8b949e;
+    font-style: italic;
+  }
+
+  html[data-theme="system"] .chroma .gd {
+    color: #ffa198;
+    background-color: #490202;
+  }
+
+  html[data-theme="system"] .chroma .gi {
+    color: #7ee787;
+    background-color: #04260f;
+  }
+
+  html[data-theme="system"] .chroma .ge {
+    font-style: italic;
+  }
+
+  html[data-theme="system"] .chroma .gs {
+    font-weight: bold;
+  }
+
+  html[data-theme="system"] .chroma .gl {
+    text-decoration: underline;
+  }
+
+  html[data-theme="system"] .chroma .w {
+    color: #6e7681;
+  }
+}
