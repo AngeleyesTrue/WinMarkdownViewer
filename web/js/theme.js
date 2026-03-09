@@ -27,9 +27,21 @@
     // 테마를 적용한다
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem(STORAGE_KEY, theme);
+        // localStorage에도 저장하지만 포트가 변경되면 유실되므로
+        // WebSocket을 통해 서버에도 통지하여 config.json에 영속화한다
+        try { localStorage.setItem(STORAGE_KEY, theme); } catch(e) {}
+        notifyServer(theme);
         updateToggleButton(theme);
         updateMermaidTheme(theme);
+    }
+
+    // 서버에 테마 변경을 WebSocket으로 통지한다
+    // 서버가 config.json에 저장하여 앱 재시작 시에도 테마가 유지된다
+    function notifyServer(theme) {
+        // viewer.html의 인라인 스크립트가 노출하는 window._wsSend를 사용한다
+        if (typeof window._wsSend === 'function') {
+            window._wsSend(JSON.stringify({ type: 'theme', value: theme }));
+        }
     }
 
     // 다음 테마로 순환 전환한다

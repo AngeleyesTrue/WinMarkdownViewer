@@ -142,6 +142,17 @@ func (s *Server) SetTheme(theme string) {
 	s.theme = theme
 }
 
+// GetTheme 은 현재 설정된 테마를 반환한다.
+// 테마가 설정되지 않은 경우 "system"을 반환한다.
+func (s *Server) GetTheme() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.theme == "" {
+		return "system"
+	}
+	return s.theme
+}
+
 // SetContent 는 현재 HTML 콘텐츠를 설정한다.
 func (s *Server) SetContent(html string) {
 	s.mu.Lock()
@@ -225,7 +236,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		conn.WriteMessage(websocket.TextMessage, msgBytes)
 	}
 
-	// 클라이언트의 메시지를 읽는 고루틴 (연결 유지 및 종료 감지)
+	// 클라이언트의 메시지를 읽는 고루틴 (연결 유지, 종료 감지, 테마 변경 수신)
 	go func() {
 		defer func() {
 			s.mu.Lock()
@@ -235,8 +246,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}()
 
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			_, msgData, err := conn.ReadMessage()
+			if err != nil {
 				return
+			}
+			// 클라이언트로부터 테마 변경 메시지를 수신한다
+			var clientMsg struct {
+				Type  string `json:"type"`
+				Value string `json:"value"`
+			}
+			if json.Unmarshal(msgData, &clientMsg) == nil && clientMsg.Type == "theme" {
+				s.SetTheme(clientMsg.Value)
 			}
 		}
 	}()

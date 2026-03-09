@@ -53,6 +53,12 @@
 
             ws.onopen = function() {
                 reconnectDelay = 1000;
+                // 테마 모듈이 WebSocket을 통해 서버에 메시지를 보낼 수 있도록 노출한다
+                window._wsSend = function(data) {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(data);
+                    }
+                };
             };
 
             ws.onmessage = function(event) {

@@ -188,6 +188,7 @@ func run() int {
 	filename := filepath.Base(absPath)
 	srv.SetTitle(filename + " - WinMarkdownViewer")
 	srv.SetFontSize(cfg.FontSize)
+	srv.SetTheme(cfg.Theme)
 	srv.SetContent(rendered)
 
 	port, err := srv.Start()
@@ -279,6 +280,7 @@ func run() int {
 
 	// 16. 종료 처리: 설정 저장 -> 리소스 정리
 	cfg.LastOpenedFile = absPath
+	cfg.Theme = srv.GetTheme()
 	_ = config.Save(cfg)
 
 	if trayErr == nil {
