@@ -147,6 +147,7 @@ type templateData struct {
 	CSS      template.CSS
 	FontSize int
 	Content  template.HTML
+	Theme    string // 테마 설정: "light", "dark", "system"
 }
 
 // viewerTmpl 은 모듈 초기화 시 파싱되는 캐싱된 HTML 템플릿이다.
@@ -155,12 +156,19 @@ var viewerTmpl = template.Must(template.New("viewer").Parse(string(web.ViewerHTM
 // BuildFullHTML 은 제목과 마크다운 렌더링 결과를 조합하여 완전한 HTML 문서를 생성한다.
 // 임베디드 HTML 템플릿과 CSS를 사용한다.
 // 기본 폰트 크기 16px을 사용한다.
-func BuildFullHTML(title string, renderedContent string) (string, error) {
+// opts 가변 인자로 테마를 지정할 수 있다. ("light", "dark", "system")
+// 테마를 지정하지 않으면 "system"을 기본값으로 사용한다.
+func BuildFullHTML(title string, renderedContent string, opts ...string) (string, error) {
+	theme := "system"
+	if len(opts) > 0 && opts[0] != "" {
+		theme = opts[0]
+	}
 	data := templateData{
 		Title:    title,
 		CSS:      template.CSS(web.GitHubMarkdownCSS),
 		FontSize: 16,
 		Content:  template.HTML(renderedContent),
+		Theme:    theme,
 	}
 
 	var buf bytes.Buffer

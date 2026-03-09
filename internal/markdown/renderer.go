@@ -4,6 +4,7 @@ package markdown
 import (
 	"bytes"
 
+	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
@@ -19,10 +20,13 @@ var md = goldmark.New(
 	goldmark.WithExtensions(
 		extension.GFM, // 테이블, 취소선, 자동링크, 태스크리스트
 		highlighting.NewHighlighting(
-			highlighting.WithStyle("github"),
-			// WithFormatOptions()는 인라인 스타일 기반 구문 강조를 사용하여
-			// 외부 CSS 파일 의존 없이 안전하게 코드 하이라이팅을 적용한다.
-			highlighting.WithFormatOptions(),
+			// CSS 클래스 기반 구문 강조를 사용하여 다크/라이트 테마 전환을 지원한다.
+			// 스타일은 syntax-light.css / syntax-dark.css 로 제어된다.
+			// WithFormatOptions에 chromahtml.WithClasses(true)를 전달하면
+			// 인라인 스타일 대신 CSS 클래스를 사용한다.
+			highlighting.WithFormatOptions(
+				chromahtml.WithClasses(true),
+			),
 		),
 	),
 	goldmark.WithParserOptions(

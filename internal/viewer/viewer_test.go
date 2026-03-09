@@ -212,3 +212,63 @@ func TestBuildFullHTMLIncludesCSS(t *testing.T) {
 		t.Error("BuildFullHTML 결과에 GitHub 마크다운 CSS가 포함되지 않음")
 	}
 }
+
+// TestBuildFullHTMLWithTheme 테마 파라미터를 지정한 HTML 생성을 검증한다.
+func TestBuildFullHTMLWithTheme(t *testing.T) {
+	tests := []struct {
+		name          string
+		theme         string
+		expectedTheme string
+	}{
+		{
+			name:          "라이트 테마 지정",
+			theme:         "light",
+			expectedTheme: "light",
+		},
+		{
+			name:          "다크 테마 지정",
+			theme:         "dark",
+			expectedTheme: "dark",
+		},
+		{
+			name:          "시스템 테마 지정",
+			theme:         "system",
+			expectedTheme: "system",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := BuildFullHTML("Title", "<p>content</p>", tt.theme)
+			if err != nil {
+				t.Fatalf("BuildFullHTML() 오류 발생: %v", err)
+			}
+			if !strings.Contains(result, "<!DOCTYPE html>") {
+				t.Error("HTML 문서 구조가 생성되어야 한다")
+			}
+		})
+	}
+}
+
+// TestBuildFullHTMLDefaultTheme 테마 미지정 시 기본값(system)이 사용되는지 검증한다.
+func TestBuildFullHTMLDefaultTheme(t *testing.T) {
+	// 테마를 지정하지 않고 호출
+	result, err := BuildFullHTML("Title", "<p>content</p>")
+	if err != nil {
+		t.Fatalf("BuildFullHTML() 오류 발생: %v", err)
+	}
+	if !strings.Contains(result, "<!DOCTYPE html>") {
+		t.Error("HTML 문서 구조가 생성되어야 한다")
+	}
+}
+
+// TestBuildFullHTMLEmptyThemeFallback 빈 테마 문자열 지정 시 기본값이 사용되는지 검증한다.
+func TestBuildFullHTMLEmptyThemeFallback(t *testing.T) {
+	result, err := BuildFullHTML("Title", "<p>content</p>", "")
+	if err != nil {
+		t.Fatalf("BuildFullHTML() 오류 발생: %v", err)
+	}
+	if !strings.Contains(result, "<!DOCTYPE html>") {
+		t.Error("빈 테마에서도 HTML 문서 구조가 생성되어야 한다")
+	}
+}
