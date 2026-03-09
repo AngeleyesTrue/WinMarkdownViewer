@@ -4,49 +4,41 @@
 
 | 항목 | 선택 | 버전 | 사유 |
 |------|------|------|------|
-| 언어 | Go | 1.26+ | 빠른 컴파일, 단일 바이너리, Windows API 호출 용이 |
+| 언어 | Go | 1.25+ | 빠른 컴파일, 단일 바이너리, Windows API 호출 용이 |
 | 빌드 | Go toolchain | - | CGO 불필요 (순수 Go WebView2 바인딩) |
 
 ## 핵심 라이브러리
-
-### 구현 완료
 
 | 라이브러리 | 용도 | 비고 |
 |-----------|------|------|
 | `github.com/jchv/go-webview2` | WebView2 바인딩 | Windows 내장 Edge 엔진 활용 |
 | `github.com/yuin/goldmark` | 마크다운 파싱/렌더링 | GFM 확장 지원 |
-| `github.com/yuin/goldmark-highlighting` | 코드 구문 강조 | chroma 기반 |
+| `github.com/yuin/goldmark-highlighting/v2` | 코드 구문 강조 | chroma 기반, 인라인 스타일 |
+| `github.com/alecthomas/chroma/v2` | 구문 강조 엔진 | goldmark-highlighting 의존 |
 | `github.com/fsnotify/fsnotify` | 파일 변경 감시 | 크로스 플랫폼 파일 시스템 감시 |
 | `github.com/gorilla/websocket` | WebSocket 통신 | 실시간 새로고침용 |
-| `golang.org/x/sys/windows` | Windows API | 레지스트리, Named Mutex, Named Pipe (SPEC-WIN-001) |
-| `github.com/energye/systray` | 시스템 트레이 | Pure Go 구현, CGO 불필요 (SPEC-WIN-001) |
+| `golang.org/x/sys/windows` | Windows API | 레지스트리, Named Mutex, Named Pipe |
+| `github.com/energye/systray` | 시스템 트레이 | Pure Go 구현, CGO 불필요 |
 
 ## 프론트엔드 (WebView2 내 HTML/CSS/JS)
-
-### 구현 완료
 
 | 항목 | 선택 | 사유 |
 |------|------|------|
 | CSS | GitHub Markdown CSS | GitHub 스타일 마크다운 렌더링 |
 | 코드 하이라이트 | goldmark-highlighting (chroma) | Go 내장 구문 강조 |
 | 실시간 연결 | WebSocket (네이티브) | 파일 변경 시 자동 새로고침 |
-
-### 향후 도입 예정
-
-| 항목 | 선택 | 사유 |
-|------|------|------|
-| 다이어그램 | mermaid.js (임베디드) | 다이어그램 렌더링 (SPEC-RENDER-001) |
-| 수식 | KaTeX (임베디드) | 수학 수식 렌더링 (SPEC-RENDER-001) |
+| 수학 수식 | KaTeX v0.16.x (임베디드) | 인라인/블록 수식 렌더링 (go:embed) |
+| 다이어그램 | Mermaid v10.x (임베디드) | flowchart, sequence, class 등 다이어그램 (go:embed) |
 
 ## 빌드 및 배포
 
 | 항목 | 선택 | 사유 |
 |------|------|------|
 | 빌드 도구 | Go build + ldflags | 버전 정보 임베딩 |
-| 리소스 임베딩 | Go embed | HTML/CSS/JS를 바이너리에 포함 |
+| 리소스 임베딩 | Go embed | HTML/CSS/JS/폰트를 바이너리에 포함 |
 | 아이콘 | rsrc 또는 goversioninfo | Windows 실행 파일 아이콘/매니페스트 |
-| MSI 빌드 | WiX Toolset v4 | Windows Installer 패키지 |
-| CI/CD | GitHub Actions | 자동 빌드/릴리스 |
+| MSI 빌드 | WiX Toolset v4 | Windows Installer 패키지 (향후) |
+| CI/CD | GitHub Actions | 자동 빌드/릴리스 (향후) |
 
 ## 아키텍처 결정 사항
 
@@ -61,16 +53,24 @@
 [파일 시스템] --fsnotify--> [Go 서버] --WebSocket--> [WebView2]
      |                         |                        |
   .md 파일 변경           goldmark 렌더링         HTML 업데이트
+                          (GFM + chroma)        + KaTeX/Mermaid 후처리
 ```
 
 1. fsnotify로 .md 파일 변경 감지
-2. goldmark으로 마크다운을 HTML로 변환
+2. goldmark으로 마크다운을 HTML로 변환 (GFM + chroma 구문 강조)
 3. 내장 HTTP 서버를 통해 WebSocket으로 변경된 HTML 전송
 4. WebView2가 DOM을 업데이트 (스크롤 위치 유지)
+5. 클라이언트에서 KaTeX 수식 + Mermaid 다이어그램 후처리 렌더링
+
+### KaTeX/Mermaid 임베딩 전략
+- KaTeX JS/CSS/폰트를 go:embed로 바이너리에 포함
+- Mermaid JS를 go:embed로 바이너리에 포함
+- 네트워크 없이 오프라인에서도 완벽한 렌더링
+- render-extensions.js가 DOM 변경 후 수식/다이어그램 렌더링 수행
 
 ### 단일 인스턴스 패턴
 - Named Mutex로 이미 실행 중인 인스턴스 감지
-- Named Pipe 또는 TCP로 새 파일 경로를 기존 인스턴스에 전달
+- Named Pipe로 새 파일 경로를 기존 인스턴스에 전달
 - 기존 인스턴스가 새 파일을 열어 표시
 
 ### 순수 Go 빌드
@@ -80,6 +80,6 @@
 
 ## 개발 환경 요구사항
 
-- Go 1.26 이상
+- Go 1.25 이상
 - WiX Toolset v4 - MSI 빌드용 (선택)
 - Windows 10/11 개발 머신

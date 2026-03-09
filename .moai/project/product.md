@@ -20,14 +20,14 @@ Windows 환경에서 마크다운(.md) 파일을 빠르고 편리하게 미리�
 
 ## 핵심 기능
 
-### F1: 마크다운 렌더링
+### F1: 마크다운 렌더링 (SPEC-UI-001, SPEC-RENDER-001 구현 완료)
 - GFM(GitHub Flavored Markdown) 지원
-- 코드 블록 구문 강조 (Syntax Highlighting)
+- 코드 블록 구문 강조 (chroma 기반 Syntax Highlighting)
 - 테이블, 체크박스, 각주 지원
-- 수학 수식 렌더링 (KaTeX)
-- Mermaid 다이어그램 지원
+- 수학 수식 렌더링 (KaTeX, 인라인/블록 지원)
+- Mermaid 다이어그램 지원 (flowchart, sequence, class, state, gantt, pie)
 
-### F2: 실시간 미리보기
+### F2: 실시간 미리보기 (SPEC-WATCH-001 구현 완료)
 - 파일 시스템 감시 (fsnotify)를 통한 변경 감지
 - WebSocket 기반 자동 새로고침
 - 스크롤 위치 유지
@@ -39,13 +39,13 @@ Windows 환경에서 마크다운(.md) 파일을 빠르고 편리하게 미리�
 - 단일 인스턴스 실행 (Named Mutex + Named Pipe로 기존 인스턴스에 파일 전달)
 - HKCU 범위 레지스트리 사용 (관리자 권한 불필요)
 
-### F4: MSI 설치 프로그램
+### F4: MSI 설치 프로그램 (미구현)
 - WiX Toolset 기반 MSI 빌드
 - 컨텍스트 메뉴 자동 등록/해제
 - 파일 연결 자동 설정
 - 프로그램 추가/제거에서 깔끔한 제거
 
-### F5: 사용자 설정
+### F5: 사용자 설정 (SPEC-CONFIG-001 구현 완료)
 - 테마 선택 (라이트/다크/시스템 연동)
 - CSS 커스터마이징
 - 폰트 크기 조절
