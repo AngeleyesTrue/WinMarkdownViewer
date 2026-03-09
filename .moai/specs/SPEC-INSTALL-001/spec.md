@@ -2,7 +2,7 @@
 id: SPEC-INSTALL-001
 title: "MSI Installer - WiX Toolset v4 Based Package"
 version: 1.0.0
-status: draft
+status: completed
 created: 2026-03-06
 updated: 2026-03-06
 author: "Claud Archive"

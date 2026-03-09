@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Variables.wxi - WinMarkdownViewer MSI 인스톨러 공유 변수
+  빌드 시 -d 플래그로 ProductVersion을 오버라이드할 수 있다.
+  예: wix build -d ProductVersion=1.2.3
+-->
+<Include xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?ifndef ProductName ?>
+    <?define ProductName = "WinMarkdownViewer" ?>
+  <?endif?>
+
+  <?ifndef ProductVersion ?>
+    <?define ProductVersion = "1.0.0" ?>
+  <?endif?>
+
+  <?ifndef Manufacturer ?>
+    <?define Manufacturer = "WinMarkdownViewer" ?>
+  <?endif?>
+
+  <?define UpgradeCode = "{B7E3F2A1-9C4D-4E6F-8A2B-1D5F7E9C3B4A}" ?>
+
+  <?ifndef ExeFileName ?>
+    <?define ExeFileName = "winmdview.exe" ?>
+  <?endif?>
+</Include>

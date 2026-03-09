@@ -20,6 +20,28 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **시스템 트레이**: 최소화 시 시스템 트레이로 이동, 트레이에서 복원/종료 지원
 - **단일 인스턴스**: 이미 실행 중이면 새 파일을 기존 인스턴스로 전달 (Named Pipe)
 
+## 설치
+
+### MSI 인스톨러 (권장)
+
+[Releases](https://github.com/AngeleyesTrue/WinMarkdownViewer/releases) 페이지에서 `WinMarkdownViewer-x.x.x-x64.msi` 파일을 다운로드하여 실행합니다.
+
+설치 시 자동으로 등록되는 항목:
+- 파일 탐색기 .md 파일 우클릭 컨텍스트 메뉴 ("마크다운 뷰어로 열기")
+- 시작 메뉴 바로가기
+- 프로그램 추가/제거 등록
+- (선택) .md 파일 연결 (Open With 목록)
+
+제거 시 위 항목이 모두 자동으로 정리됩니다. 사용자 설정(`%APPDATA%\WinMarkdownViewer\`)은 보존됩니다.
+
+### MSI 빌드 (개발자)
+
+```powershell
+.\installer\build-msi.ps1 -Version "1.0.0"
+```
+
+빌드 요구 사항: Go 1.26+, .NET SDK 6+, WiX Toolset v4
+
 ## 사전 요구 사항
 
 - **Go 1.26 이상**

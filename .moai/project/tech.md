@@ -4,7 +4,7 @@
 
 | 항목 | 선택 | 버전 | 사유 |
 |------|------|------|------|
-| 언어 | Go | 1.25+ | 빠른 컴파일, 단일 바이너리, Windows API 호출 용이 |
+| 언어 | Go | 1.26+ | 빠른 컴파일, 단일 바이너리, Windows API 호출 용이 |
 | 빌드 | Go toolchain | - | CGO 불필요 (순수 Go WebView2 바인딩) |
 
 ## 핵심 라이브러리
@@ -37,8 +37,9 @@
 | 빌드 도구 | Go build + ldflags | 버전 정보 임베딩 |
 | 리소스 임베딩 | Go embed | HTML/CSS/JS/폰트를 바이너리에 포함 |
 | 아이콘 | rsrc 또는 goversioninfo | Windows 실행 파일 아이콘/매니페스트 |
-| MSI 빌드 | WiX Toolset v4 | Windows Installer 패키지 (향후) |
-| CI/CD | GitHub Actions | 자동 빌드/릴리스 (향후) |
+| MSI 빌드 | WiX Toolset v4 (NuGet) | Windows Installer 패키지, Major Upgrade 패턴 |
+| 빌드 스크립트 | PowerShell 5.1+ | build-msi.ps1 (Go + WiX 통합 빌드) |
+| CI/CD | GitHub Actions | v* 태그 → 자동 빌드 → Release 첨부 |
 
 ## 아키텍처 결정 사항
 
@@ -78,8 +79,24 @@
 - GCC/MinGW 설치 불필요
 - `go build`만으로 빌드 가능
 
+### MSI 인스톨러 아키텍처 (WiX v4 Major Upgrade)
+```
+새 MSI 실행
+  → Windows Installer가 UpgradeCode(고정 GUID)로 기존 설치 감지
+  → 기존 버전 자동 제거 (레지스트리, 바로가기 포함)
+  → 새 버전 설치 (바이너리 + 레지스트리 + 바로가기)
+  → %APPDATA% 설정 파일 보존 (MSI 관리 범위 외)
+```
+
+**핵심 원칙:**
+- UpgradeCode GUID는 제품 수명 동안 절대 변경 금지
+- 컴포넌트 GUID도 유지 (변경 시 잔여 파일 발생)
+- Version 번호만 올리면 Major Upgrade 자동 동작
+- HKCU 범위 레지스트리 사용 (MSI 설치 자체는 %ProgramFiles% 쓰기로 관리자 권한 필요 가능)
+
 ## 개발 환경 요구사항
 
-- Go 1.25 이상
-- WiX Toolset v4 - MSI 빌드용 (선택)
+- Go 1.26 이상
+- WiX Toolset v4 (.NET 6+ SDK 기반) - MSI 빌드용
+- PowerShell 5.1+ - 빌드 스크립트 실행용
 - Windows 10/11 개발 머신

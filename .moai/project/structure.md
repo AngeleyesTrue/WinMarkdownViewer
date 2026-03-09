@@ -59,6 +59,21 @@ WinMarkdownViewer/
 │   ├── fonts/                   # KaTeX 수학 폰트 (woff2, 20개)
 │   ├── embed.go                 # go:embed 디렉티브
 │   └── embed_test.go            # 임베딩 검증 테스트
+├── installer/
+│   ├── wix/
+│   │   ├── Package.wxs              # WiX v4 메인 패키지 정의 (UpgradeCode, MajorUpgrade)
+│   │   ├── Directories.wxs          # 디렉토리 구조 정의
+│   │   ├── Components.wxs           # 컴포넌트 및 파일 정의 (winmdview.exe)
+│   │   ├── Registry.wxs             # 레지스트리 항목 정의 (컨텍스트 메뉴, 파일 연결)
+│   │   ├── Shortcuts.wxs            # 시작 메뉴 바로가기 정의
+│   │   └── Variables.wxi            # 공통 변수 (버전, 제품명 등)
+│   ├── tests/
+│   │   └── build-msi.Tests.ps1      # Pester 테스트
+│   ├── build-msi.ps1                # MSI 빌드 스크립트
+│   └── README.md                    # 빌드 방법 안내
+├── .github/
+│   └── workflows/
+│       └── release.yml              # 릴리스 CI/CD 워크플로우 (v* 태그 → MSI 빌드 → Release)
 ├── go.mod
 ├── go.sum
 ├── README.md

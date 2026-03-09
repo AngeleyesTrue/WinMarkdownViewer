@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Registry.wxs - 레지스트리 컴포넌트 정의
+  컨텍스트 메뉴와 파일 연결(Open With) 레지스트리 항목을 등록한다.
+  모든 항목은 HKCU에 등록되며 HKLM은 사용하지 않는다.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?include Variables.wxi ?>
+
+  <Fragment>
+    <!--
+      컨텍스트 메뉴 등록 컴포넌트
+      경로: HKCU\Software\Classes\SystemFileAssociations\.md\shell\WinMarkdownViewer
+    -->
+    <ComponentGroup Id="ContextMenuComponents" Directory="INSTALLFOLDER">
+      <Component Id="ContextMenuReg" Guid="*">
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\SystemFileAssociations\.md\shell\WinMarkdownViewer">
+          <RegistryValue Type="string" Value="마크다운 뷰어로 열기" />
+          <RegistryValue Name="Icon" Type="string" Value="[INSTALLFOLDER]$(var.ExeFileName)" />
+        </RegistryKey>
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\SystemFileAssociations\.md\shell\WinMarkdownViewer\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]$(var.ExeFileName)&quot; &quot;%1&quot;" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+
+    <!--
+      파일 연결 컴포넌트 (Open With 목록 등록)
+      - ProgID: WinMarkdownViewer.md
+      - OpenWithProgids: .md 파일에 ProgID 추가
+      - Applications: winmdview.exe 앱 정보
+    -->
+    <ComponentGroup Id="FileAssociationComponents" Directory="INSTALLFOLDER">
+      <!-- ProgID 등록: shell\open\command -->
+      <Component Id="ProgIdReg" Guid="*">
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\WinMarkdownViewer.md\shell\open\command">
+          <RegistryValue Type="string" Value="&quot;[INSTALLFOLDER]$(var.ExeFileName)&quot; &quot;%1&quot;" />
+        </RegistryKey>
+      </Component>
+
+      <!-- OpenWithProgids에 ProgID 추가 -->
+      <Component Id="OpenWithProgidsReg" Guid="*">
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\.md\OpenWithProgids">
+          <RegistryValue Name="WinMarkdownViewer.md" Type="string" Value="" />
+        </RegistryKey>
+      </Component>
+
+      <!-- Applications\winmdview.exe FriendlyAppName -->
+      <Component Id="ApplicationsReg" Guid="*">
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\Applications\$(var.ExeFileName)">
+          <RegistryValue Name="FriendlyAppName" Type="string" Value="$(var.ProductName)" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
