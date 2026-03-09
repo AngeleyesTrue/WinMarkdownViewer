@@ -177,6 +177,25 @@ func TestRenderEmptyInput(t *testing.T) {
 	}
 }
 
+// TestRenderMermaidCodeBlock mermaid 코드 블록이 language-mermaid 클래스로 렌더링되는지 검증한다.
+func TestRenderMermaidCodeBlock(t *testing.T) {
+	input := "```mermaid\ngraph TD;\n    A-->B;\n```"
+	result, err := Render([]byte(input))
+	if err != nil {
+		t.Fatalf("Render() 오류 발생: %v", err)
+	}
+
+	// goldmark은 코드 블록에 language-mermaid 클래스를 부여해야 한다
+	if !strings.Contains(result, "mermaid") {
+		t.Errorf("mermaid 코드 블록에 mermaid 관련 클래스/내용이 포함되지 않음.\n결과: %s", result)
+	}
+
+	// 내용이 보존되어야 한다
+	if !strings.Contains(result, "graph TD") {
+		t.Errorf("mermaid 코드 블록 내용이 보존되지 않음.\n결과: %s", result)
+	}
+}
+
 // TestRenderNilInput nil 입력 처리를 검증한다.
 func TestRenderNilInput(t *testing.T) {
 	result, err := Render(nil)
