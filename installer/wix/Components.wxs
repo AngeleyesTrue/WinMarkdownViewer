@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Components.wxs - 파일 컴포넌트 정의
+  winmdview.exe 실행 파일을 INSTALLFOLDER에 설치한다.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?include Variables.wxi ?>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="ExeComponent" Guid="*">
+        <File Id="ExeFile"
+              Name="$(var.ExeFileName)"
+              Source="$(var.ExeFileName)"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

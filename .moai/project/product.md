@@ -39,11 +39,31 @@ Windows 환경에서 마크다운(.md) 파일을 빠르고 편리하게 미리�
 - 단일 인스턴스 실행 (Named Mutex + Named Pipe로 기존 인스턴스에 파일 전달)
 - HKCU 범위 레지스트리 사용 (관리자 권한 불필요)
 
-### F4: MSI 설치 프로그램 (미구현)
-- WiX Toolset 기반 MSI 빌드
+### F4: MSI 설치 프로그램 (SPEC-INSTALL-001 구현 완료)
+- WiX Toolset v4 기반 MSI 빌드
 - 컨텍스트 메뉴 자동 등록/해제
-- 파일 연결 자동 설정
+- 파일 연결 자동 설정 (선택적 Feature)
 - 프로그램 추가/제거에서 깔끔한 제거
+- 시작 메뉴 바로가기 생성
+
+#### 업그레이드 전략 (Major Upgrade 패턴)
+- **UpgradeCode (고정 GUID)**: 제품 식별용 고정 GUID, 절대 변경 불가
+- **새 버전 설치**: 기존 버전 자동 제거 → 새 버전 설치 (MajorUpgrade)
+- **다운그레이드 방지**: WiX MajorUpgrade 설정으로 자동 차단
+- **동일 버전 재설치**: WiX 기본 Repair 동작에 의존
+- **설정 파일 보존**: %APPDATA%\WinMarkdownViewer\는 MSI 관리 범위 외 → 업그레이드 시 자동 보존
+- **컴포넌트 GUID 유지**: 파일별 컴포넌트 GUID 변경 금지 (잔여 파일 방지)
+
+#### 배포 전략
+- GitHub Actions에서 `v*` 태그 푸시 시 자동 빌드 + Release 첨부
+- 빌드 스크립트: `installer/build-msi.ps1` (Go 빌드 + WiX 컴파일 + MSI 생성)
+- 결과물: `WinMarkdownViewer-{version}-x64.msi`
+
+#### 범위 외 (v1.0)
+- 자동 업데이트 (WinSparkle 등)
+- Chocolatey/Scoop/winget 패키지 매니저 배포
+- 포터블(ZIP) 배포판
+- ARM64 아키텍처 지원
 
 ### F5: 사용자 설정 (SPEC-CONFIG-001 구현 완료)
 - 테마 선택 (라이트/다크/시스템 연동)

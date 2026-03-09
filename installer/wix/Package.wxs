@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Package.wxs - WinMarkdownViewer MSI 패키지 메인 파일
+  WiX Toolset v4 형식으로 작성되었다.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <?include Variables.wxi ?>
+
+  <Package Name="$(var.ProductName)"
+           Version="$(var.ProductVersion)"
+           Manufacturer="$(var.Manufacturer)"
+           UpgradeCode="$(var.UpgradeCode)"
+           Scope="perMachine">
+
+    <MajorUpgrade DowngradeErrorMessage="이미 더 최신 버전의 $(var.ProductName)이(가) 설치되어 있습니다."
+                  Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon.exe" SourceFile="$(var.ExeFileName)" />
+
+    <!-- 기본(필수) 기능: 실행 파일, 컨텍스트 메뉴, 시작 메뉴 바로가기 -->
+    <Feature Id="Core"
+             Title="$(var.ProductName)"
+             Description="$(var.ProductName) 핵심 구성 요소"
+             Level="1"
+             AllowAbsent="no">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="ContextMenuComponents" />
+      <ComponentGroupRef Id="ShortcutComponents" />
+    </Feature>
+
+    <!-- 선택적 기능: .md 파일 연결 (Open With 목록 등록) -->
+    <Feature Id="FileAssociation"
+             Title="파일 연결"
+             Description=".md 파일을 WinMarkdownViewer로 열 수 있도록 Open With 목록에 등록합니다."
+             Level="2">
+      <ComponentGroupRef Id="FileAssociationComponents" />
+    </Feature>
+
+  </Package>
+</Wix>
