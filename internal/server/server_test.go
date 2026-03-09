@@ -785,6 +785,60 @@ func TestGetRoot_확장렌더링통합(t *testing.T) {
 	}
 }
 
+// TestWebSocket_잘못된테마값거부 유효하지 않은 테마 값이 WebSocket으로 전송될 때 서버가 무시하는지 검증한다.
+func TestWebSocket_잘못된테마값거부(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServer()
+	if err != nil {
+		t.Fatalf("NewServer() 오류: %v", err)
+	}
+	defer s.Shutdown(context.Background())
+
+	s.SetTheme("light")
+
+	port, err := s.Start()
+	if err != nil {
+		t.Fatalf("Start() 오류: %v", err)
+	}
+
+	wsURL := fmt.Sprintf("ws://127.0.0.1:%d/ws", port)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket 연결 실패: %v", err)
+	}
+	defer conn.Close()
+
+	// 초기 콘텐츠 메시지를 소비한다
+	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	conn.ReadMessage()
+
+	// 악의적 테마 값을 전송한다
+	invalidThemes := []string{
+		`<script>alert(1)</script>`,
+		`light"><img src=x onerror=alert(1)>`,
+		`invalid`,
+		``,
+	}
+
+	for _, invalid := range invalidThemes {
+		msg, _ := json.Marshal(struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+		}{Type: "theme", Value: invalid})
+		conn.WriteMessage(websocket.TextMessage, msg)
+	}
+
+	// 서버가 메시지를 처리할 시간을 준다
+	time.Sleep(100 * time.Millisecond)
+
+	// 테마가 변경되지 않았는지 검증한다
+	got := s.GetTheme()
+	if got != "light" {
+		t.Errorf("잘못된 테마 값으로 테마가 변경됨: %q, want %q", got, "light")
+	}
+}
+
 // TestShutdown_서버미시작 서버가 시작되지 않은 상태에서 Shutdown을 호출해도 안전한지 검증한다.
 func TestShutdown_서버미시작(t *testing.T) {
 	t.Parallel()

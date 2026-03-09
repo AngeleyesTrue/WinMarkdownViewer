@@ -256,7 +256,11 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				Value string `json:"value"`
 			}
 			if json.Unmarshal(msgData, &clientMsg) == nil && clientMsg.Type == "theme" {
-				s.SetTheme(clientMsg.Value)
+				// 허용된 테마 값만 수락한다 (XSS 방지)
+				switch clientMsg.Value {
+				case "light", "dark", "system":
+					s.SetTheme(clientMsg.Value)
+				}
 			}
 		}
 	}()
