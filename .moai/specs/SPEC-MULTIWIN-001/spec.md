@@ -1,7 +1,7 @@
 ---
 id: SPEC-MULTIWIN-001
 version: 0.2.0
-status: draft
+status: completed
 created: 2026-03-09
 updated: 2026-03-09
 author: MoAI
@@ -168,3 +168,10 @@ internal/window/
 | R4 | internal/window/window.go, internal/watcher/watcher.go | SPEC-WATCH-001 |
 | R5 | internal/tray/tray.go | SPEC-WIN-001 |
 | R6 | internal/app/pipe.go, internal/app/constants.go | SPEC-WIN-001 |
+
+## 구현 노트 (Implementation Notes)
+
+- **PoC 결과**: Path A (goroutine-per-window) 성공 확인 (`cmd/poc/multiwin/` 검증)
+- **윈도우 위치**: 캐스케이드 방식에서 OS 기본 배치(`CW_USEDEFAULT`)로 최종 변경 (S4 전략 수정)
+- **build.ps1 출력 경로**: `dist/` 디렉토리로 변경
+- **테스트 커버리지**: `internal/window` 88.2%, `internal/app` 87.3%
