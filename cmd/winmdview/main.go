@@ -1,18 +1,22 @@
 // Package main 은 WinMarkdownViewer의 진입점이다.
 // CLI 인자로 전달된 Markdown 파일을 내장 HTTP 서버와 WebView2 윈도우로 실시간 미리보기한다.
 // 시스템 트레이 아이콘, 단일 인스턴스 제어, 컨텍스트 메뉴 등록을 지원한다.
+// WindowManager를 통해 다중 윈도우를 관리하며, 각 윈도우는 별도 고루틴에서 실행된다.
 package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/sys/windows"
 
 	"github.com/AngeleyesTrue/WinMarkdownViewer/assets"
@@ -23,6 +27,7 @@ import (
 	"github.com/AngeleyesTrue/WinMarkdownViewer/internal/tray"
 	"github.com/AngeleyesTrue/WinMarkdownViewer/internal/viewer"
 	"github.com/AngeleyesTrue/WinMarkdownViewer/internal/watcher"
+	"github.com/AngeleyesTrue/WinMarkdownViewer/internal/window"
 )
 
 // Windows API 상수
@@ -34,14 +39,29 @@ const (
 	gwlWndProc   = -4     // GWL_WNDPROC (SetWindowLongPtrW 인덱스)
 )
 
+// 캐스케이드 윈도우 위치 상수
+const (
+	cascadeOffset = 30 // 윈도우 캐스케이드 오프셋 (px)
+)
+
+// Windows 메시지 펌프 상수
+const (
+	pmRemove = 0x0001 // PM_REMOVE
+)
+
 // Windows API 함수
 var (
-	user32                = windows.NewLazySystemDLL("user32.dll")
-	procShowWindow        = user32.NewProc("ShowWindow")
+	user32                  = windows.NewLazySystemDLL("user32.dll")
+	procShowWindow          = user32.NewProc("ShowWindow")
 	procSetForegroundWindow = user32.NewProc("SetForegroundWindow")
-	procCallWindowProcW   = user32.NewProc("CallWindowProcW")
-	procSetWindowLongPtrW = user32.NewProc("SetWindowLongPtrW")
-	procDefWindowProcW    = user32.NewProc("DefWindowProcW")
+	procCallWindowProcW     = user32.NewProc("CallWindowProcW")
+	procSetWindowLongPtrW   = user32.NewProc("SetWindowLongPtrW")
+	procDefWindowProcW      = user32.NewProc("DefWindowProcW")
+	procGetSystemMetrics    = user32.NewProc("GetSystemMetrics")
+	procSetWindowPos        = user32.NewProc("SetWindowPos")
+	procPeekMessageW        = user32.NewProc("PeekMessageW")
+	procTranslateMessage    = user32.NewProc("TranslateMessage")
+	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
 )
 
 // appFlags 는 CLI 플래그 파싱 결과를 담는 구조체이다.
@@ -107,12 +127,359 @@ func handleUnregister() int {
 	return app.ExitSuccess
 }
 
+// pipeResult 는 handlePipeMessage의 처리 결과를 나타내는 상수이다.
+type pipeResult int
+
+const (
+	// pipeResultNewWindow 새 윈도우가 생성되었다.
+	pipeResultNewWindow pipeResult = iota
+	// pipeResultActivated 기존 윈도우가 활성화되었다.
+	pipeResultActivated
+	// pipeResultError 에러가 발생했다.
+	pipeResultError
+)
+
+// windowOpener 는 WindowManager.OpenFile 동작을 추상화하는 인터페이스이다.
+// 테스트에서 모의 객체로 대체할 수 있다.
+type windowOpener interface {
+	OpenFile(path string) (int, error)
+}
+
+// handlePipeMessage 는 파이프로 수신한 파일 경로를 WindowManager를 통해 처리한다.
+// 새 파일이면 윈도우를 생성하고, 이미 열린 파일이면 activateFn 콜백으로 기존 윈도우를 활성화한다.
+// 에러 발생 시 pipeResultError를 반환한다 (MessageBox 표시는 호출자가 처리).
+func handlePipeMessage(opener windowOpener, filePath string, activateFn func(windowID int)) pipeResult {
+	_, err := opener.OpenFile(filePath)
+	if err == nil {
+		return pipeResultNewWindow
+	}
+
+	// 이미 열린 파일이면 기존 윈도우를 활성화한다
+	var alreadyOpen *window.FileAlreadyOpenError
+	if errors.As(err, &alreadyOpen) {
+		activateFn(alreadyOpen.WindowID)
+		return pipeResultActivated
+	}
+
+	// 기타 에러 (ErrMaxWindowsReached, ErrFileNotFound 등)
+	log.Printf("파이프 메시지 처리 실패: %v", err)
+	return pipeResultError
+}
+
+// serverAdapter 는 server.Server를 window.ServerHandle 인터페이스에 맞추는 어댑터이다.
+// Broadcast 메서드를 통해 감시자가 재렌더링된 HTML을 서버로 전달할 수 있다.
+type serverAdapter struct {
+	srv  *server.Server
+	port int
+}
+
+func (a *serverAdapter) Close() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return a.srv.Shutdown(ctx)
+}
+
+func (a *serverAdapter) Port() int {
+	return a.port
+}
+
+// Broadcast 는 모든 WebSocket 클라이언트에 HTML을 전송한다.
+func (a *serverAdapter) Broadcast(html string) {
+	a.srv.Broadcast(html)
+}
+
+// watcherAdapter 는 watcher.Watcher를 window.Closeable 인터페이스에 맞추는 어댑터이다.
+// 파일 변경 이벤트를 수신하여 서버로 브로드캐스트하는 고루틴도 관리한다.
+type watcherAdapter struct {
+	w      *watcher.Watcher
+	cancel context.CancelFunc
+}
+
+func (a *watcherAdapter) Close() error {
+	a.cancel()
+	return a.w.Close()
+}
+
+// windowEntry 는 활성 윈도우의 viewer 핸들과 HWND를 추적하는 구조체이다.
+type windowEntry struct {
+	viewer *viewer.Viewer
+	hwnd   windows.HWND
+	active bool // 윈도우가 아직 Run() 중인지 여부
+}
+
+// windowTracker 는 활성 윈도우 ID -> viewer/HWND 매핑을 관리한다.
+// @MX:NOTE: [AUTO] 다중 윈도우 고루틴에서 안전하게 접근하기 위해 sync.Mutex로 보호한다
+type windowTracker struct {
+	mu      sync.Mutex
+	entries map[int]*windowEntry
+	wg      sync.WaitGroup
+	// windowCount 는 열린 윈도우 수를 추적한다.
+	// 모든 윈도우가 닫히면 allClosed 채널을 닫는다.
+	windowCount int
+	allClosed   chan struct{}
+}
+
+// newWindowTracker 는 새로운 windowTracker를 생성한다.
+func newWindowTracker() *windowTracker {
+	return &windowTracker{
+		entries:   make(map[int]*windowEntry),
+		allClosed: make(chan struct{}),
+	}
+}
+
+// add 는 윈도우 항목을 추가한다.
+func (t *windowTracker) add(windowID int, v *viewer.Viewer, hwnd windows.HWND) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.entries[windowID] = &windowEntry{viewer: v, hwnd: hwnd, active: true}
+	t.windowCount++
+	t.wg.Add(1)
+}
+
+// remove 는 윈도우를 비활성으로 표시하고 카운트를 감소시킨다.
+// 엔트리는 삭제하지 않는다 (Destroy는 앱 종료 시 일괄 처리).
+// @MX:NOTE: [AUTO] v.Destroy()를 개별 호출하면 go-webview2의 공유 Environment가
+// 해제되어 다른 윈도우가 응답 불가 상태가 된다. 앱 종료 시 destroyAll()에서 일괄 처리한다.
+func (t *windowTracker) remove(windowID int) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if e, ok := t.entries[windowID]; ok {
+		e.active = false
+	}
+	t.windowCount--
+	t.wg.Done()
+	if t.windowCount == 0 {
+		select {
+		case <-t.allClosed:
+			// 이미 닫힘
+		default:
+			close(t.allClosed)
+		}
+	}
+}
+
+// get 은 윈도우 항목을 조회한다.
+func (t *windowTracker) get(windowID int) (*windowEntry, bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	e, ok := t.entries[windowID]
+	return e, ok
+}
+
+// terminateAll 은 모든 윈도우의 이벤트 루프를 종료시킨다.
+func (t *windowTracker) terminateAll() {
+	t.mu.Lock()
+	entries := make([]*windowEntry, 0, len(t.entries))
+	for _, e := range t.entries {
+		entries = append(entries, e)
+	}
+	t.mu.Unlock()
+
+	for _, e := range entries {
+		e.viewer.Terminate()
+	}
+}
+
+// wait 는 모든 윈도우 고루틴이 종료될 때까지 대기한다.
+func (t *windowTracker) wait() {
+	t.wg.Wait()
+}
+
+// destroyAll 은 모든 viewer를 일괄 파괴한다.
+// 앱 종료 시 호출하여 WebView2 리소스를 정리한다.
+// @MX:NOTE: [AUTO] 개별 윈도우 닫기 시 Destroy()를 호출하면 go-webview2의 공유
+// ICoreWebView2Environment가 해제되어 남은 윈도우가 응답 불가 상태가 된다.
+// 따라서 모든 윈도우 고루틴이 종료된 후 일괄 파괴한다.
+func (t *windowTracker) destroyAll() {
+	t.mu.Lock()
+	entries := make([]*windowEntry, 0, len(t.entries))
+	for _, e := range t.entries {
+		entries = append(entries, e)
+	}
+	t.entries = make(map[int]*windowEntry)
+	t.mu.Unlock()
+
+	for _, e := range entries {
+		e.viewer.Destroy()
+	}
+}
+
+// viewerFactory 는 viewer.New를 추상화하는 팩토리 함수 타입이다.
+// 테스트에서 모의 객체로 대체할 수 있다.
+type viewerFactory func(cfg viewer.Config) (*viewer.Viewer, error)
+
+// openWindowParams 는 openWindow 함수에 전달할 매개변수를 담는 구조체이다.
+type openWindowParams struct {
+	wm            *window.WindowManager
+	tracker       *windowTracker
+	cfg           *config.Config
+	filePath      string
+	newViewerFn   viewerFactory
+	windowIndex   int          // 캐스케이드 위치 계산용 인덱스
+	shutdownCh    <-chan struct{} // 앱 종료 시그널 (OS 스레드 유지용)
+}
+
+// openWindow 는 WindowManager를 통해 서버/감시자를 생성하고,
+// 별도 고루틴에서 WebView2 윈도우를 실행한다.
+// @MX:ANCHOR: [AUTO] 다중 윈도우 생성의 핵심 함수. 각 윈도우를 독립 고루틴에서 실행한다
+// @MX:REASON: 고루틴별 runtime.LockOSThread + viewer.Run 블로킹 패턴 (fan_in >= 3)
+func openWindow(ctx context.Context, params openWindowParams) (int, error) {
+	// 1. WindowManager로 서버/감시자 생성
+	windowID, err := params.wm.OpenFile(params.filePath)
+	if err != nil {
+		return 0, err
+	}
+
+	// 2. 윈도우 정보 조회 (포트 번호)
+	winInfo, ok := params.wm.GetWindow(windowID)
+	if !ok {
+		return 0, fmt.Errorf("윈도우 정보 조회 실패: windowID=%d", windowID)
+	}
+
+	// 3. 캐스케이드 위치 계산
+	offsetX, offsetY := calculateCascadePosition(params.windowIndex)
+
+	// 4. 별도 고루틴에서 WebView2 윈도우 실행
+	// @MX:WARN: [AUTO] runtime.LockOSThread 필수 - WebView2는 COM 기반이므로 스레드 고정 필요
+	// @MX:REASON: go-webview2는 OS 스레드에 고정되어야 정상 동작한다 (PoC 검증 완료)
+	errCh := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+
+		// viewer 생성
+		viewerCfg := viewer.Config{
+			Width:  params.cfg.WindowWidth,
+			Height: params.cfg.WindowHeight,
+		}
+		v, vErr := params.newViewerFn(viewerCfg)
+		if vErr != nil {
+			errCh <- vErr
+			return
+		}
+		errCh <- nil
+
+		// 윈도우 설정
+		v.SetTitle(params.filePath)
+		v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", winInfo.Port))
+
+		// HWND 획득 및 tracker 등록
+		hwnd := windows.HWND(uintptr(v.Window()))
+		params.tracker.add(windowID, v, hwnd)
+
+		// 캐스케이드 위치 적용 (첫 번째 윈도우가 아닌 경우)
+		if params.windowIndex > 0 {
+			setCascadePosition(hwnd, offsetX, offsetY)
+		}
+
+		// WebView2 이벤트 루프 (윈도우 닫힐 때까지 블로킹)
+		v.Run()
+
+		// 윈도우 닫힘 -> 서버/감시자 정리
+		params.tracker.remove(windowID)
+		_ = params.wm.CloseWindow(windowID)
+
+		// @MX:WARN: [AUTO] 윈도우 닫힌 후에도 메시지 펌프를 유지해야 한다.
+		// @MX:REASON: WebView2의 COM 객체가 이 스레드의 Apartment에 바인딩되어 있어,
+		// 메시지 펌프가 멈추면 다른 WebView2 인스턴스의 크로스-스레드 COM 콜백이
+		// 블로킹되어 응답 불가 상태가 된다. 앱 종료까지 메시지를 펌핑한다.
+		if params.shutdownCh != nil {
+			pumpMessagesUntilShutdown(params.shutdownCh)
+		}
+
+		// 앱 종료 시 viewer 정리
+		v.Destroy()
+	}()
+
+	// viewer 생성 결과 대기
+	if err := <-errCh; err != nil {
+		// viewer 생성 실패 시 서버/감시자도 정리
+		_ = params.wm.CloseWindow(windowID)
+		return 0, fmt.Errorf("WebView2 윈도우 생성 실패: %w", err)
+	}
+
+	return windowID, nil
+}
+
+// calculateCascadePosition 은 캐스케이드 윈도우 위치를 계산한다.
+// windowIndex 가 0이면 기본 위치 (센터), 1 이상이면 +30px 오프셋.
+// 화면을 벗어나면 (0, 0)으로 리셋한다.
+func calculateCascadePosition(windowIndex int) (x, y int) {
+	if windowIndex <= 0 {
+		return 0, 0
+	}
+
+	x = windowIndex * cascadeOffset
+	y = windowIndex * cascadeOffset
+
+	// 화면 크기 확인
+	screenW, _ := getScreenSize()
+	if screenW > 0 && (x > screenW/2 || y > screenW/2) {
+		return 0, 0
+	}
+
+	return x, y
+}
+
+// getScreenSize 는 주 모니터의 화면 크기를 반환한다.
+func getScreenSize() (width, height int) {
+	// SM_CXSCREEN = 0, SM_CYSCREEN = 1
+	w, _, _ := procGetSystemMetrics.Call(0)
+	h, _, _ := procGetSystemMetrics.Call(1)
+	return int(w), int(h)
+}
+
+// setCascadePosition 은 윈도우를 지정된 좌표로 이동한다.
+// SWP_NOSIZE | SWP_NOZORDER 플래그로 크기와 Z-order는 유지한다.
+func setCascadePosition(hwnd windows.HWND, x, y int) {
+	const swpNoSize = 0x0001
+	const swpNoZOrder = 0x0004
+	procSetWindowPos.Call(
+		uintptr(hwnd),
+		0, // hWndInsertAfter (무시됨, SWP_NOZORDER)
+		uintptr(x), uintptr(y),
+		0, 0, // cx, cy (무시됨, SWP_NOSIZE)
+		swpNoSize|swpNoZOrder,
+	)
+}
+
+// pumpMessagesUntilShutdown 은 현재 OS 스레드에서 Windows 메시지를 계속 펌핑한다.
+// shutdownCh 가 닫힐 때까지 메시지 루프를 유지하여 COM STA 크로스-아파트먼트 호출을
+// 처리할 수 있도록 한다.
+// @MX:WARN: [AUTO] v.Run() 반환 후 반드시 호출해야 한다 - 메시지 펌프가 멈추면
+// WebView2 런타임의 크로스-스레드 COM 콜백이 블로킹되어 다른 윈도우가 응답 불가 상태가 된다
+// @MX:REASON: WebView2의 ICoreWebView2Environment는 생성 스레드의 COM Apartment에 바인딩된다
+func pumpMessagesUntilShutdown(shutdownCh <-chan struct{}) {
+	// 48바이트 = sizeof(MSG) on AMD64 Windows
+	var msg [48]byte
+	for {
+		select {
+		case <-shutdownCh:
+			return
+		default:
+		}
+
+		ret, _, _ := procPeekMessageW.Call(
+			uintptr(unsafe.Pointer(&msg[0])),
+			0, 0, 0,
+			uintptr(pmRemove),
+		)
+		if ret != 0 {
+			procTranslateMessage.Call(uintptr(unsafe.Pointer(&msg[0])))
+			procDispatchMessageW.Call(uintptr(unsafe.Pointer(&msg[0])))
+		} else {
+			// 메시지가 없으면 짧게 대기하여 CPU 사용률을 줄인다
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+}
+
 func main() {
 	os.Exit(run())
 }
 
 // run 은 애플리케이션 로직을 실행하고 종료 코드를 반환한다.
-// @MX:ANCHOR: [AUTO] 애플리케이션의 메인 진입점으로 단일 인스턴스, 트레이, 뷰어를 조율한다
+// @MX:ANCHOR: [AUTO] 애플리케이션의 메인 진입점으로 단일 인스턴스, 트레이, 다중 윈도우를 조율한다
 // @MX:REASON: 전체 앱 생명주기를 관리하는 핵심 함수 (fan_in >= 3)
 func run() int {
 	// 1. CLI 플래그 파싱
@@ -171,116 +538,191 @@ func run() int {
 	}
 	cfg.LastOpenedFile = absPath
 
-	// 7. 초기 마크다운 렌더링
-	rendered, err := app.RenderMarkdown(absPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return app.ExitError
+	// 7. WindowManager 생성 (서버/감시자 팩토리 주입)
+	// @MX:NOTE: [AUTO] ServerFactory와 WatcherFactory는 각 윈도우별 독립 서버/감시자를 생성한다
+	// lastCreatedServer 는 ServerFactory에서 생성한 서버를 WatcherFactory에 전달하는 클로저 변수이다.
+	// WindowManager.OpenFile()이 ServerFactory를 먼저 호출하고 WatcherFactory를 호출하므로 안전하다.
+	var lastCreatedServer *serverAdapter
+	wm := window.NewWindowManager(
+		window.WithServerFactory(func(filePath string) (window.ServerHandle, error) {
+			adapter, err := createServerForFile(filePath, cfg)
+			if err != nil {
+				return nil, err
+			}
+			lastCreatedServer = adapter
+			return adapter, nil
+		}),
+		window.WithWatcherFactory(func(filePath string) (window.Closeable, error) {
+			return createWatcherForFile(filePath, lastCreatedServer)
+		}),
+	)
+
+	// 8. 윈도우 tracker 생성
+	tracker := newWindowTracker()
+
+	// 9. 종료 시그널 채널
+	// threadShutdownCh 는 모든 WebView2 고루틴의 OS 스레드를 앱 종료까지 유지하는 채널이다.
+	// 윈도우가 닫혀도 고루틴을 종료하지 않고 이 채널이 닫힐 때까지 대기한다.
+	// 이유: LockOSThread 고루틴이 종료되면 OS 스레드가 파괴되고,
+	// WebView2의 공유 COM Apartment가 무효화되어 다른 윈도우가 응답 불가 상태가 된다.
+	threadShutdownCh := make(chan struct{})
+	quitCh := make(chan struct{}, 1)
+	triggerQuit := func() {
+		select {
+		case quitCh <- struct{}{}:
+		default:
+		}
 	}
 
-	// 8. 내장 HTTP 서버 생성 및 시작
-	srv, err := server.NewServer()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Errorf("서버 생성 실패: %v", err))
-		return app.ExitError
+	// 윈도우 인덱스 카운터 (캐스케이드 위치 계산용)
+	var windowIndexMu sync.Mutex
+	windowIndex := 0
+	nextWindowIndex := func() int {
+		windowIndexMu.Lock()
+		defer windowIndexMu.Unlock()
+		idx := windowIndex
+		windowIndex++
+		return idx
 	}
 
-	filename := filepath.Base(absPath)
-	srv.SetTitle(filename + " - WinMarkdownViewer")
-	srv.SetFontSize(cfg.FontSize)
-	srv.SetTheme(cfg.Theme)
-	srv.SetContent(rendered)
+	// 10. 시스템 트레이 생성 및 시작
+	trayInst, trayErr := tray.NewTray(assets.IconData)
+	if trayErr == nil {
+		// 트레이에 윈도우 목록 제공자와 활성화 콜백 설정
+		trayInst.SetWindowList(
+			func() []tray.WindowListItem {
+				wins := wm.GetWindows()
+				items := make([]tray.WindowListItem, len(wins))
+				for i, w := range wins {
+					items[i] = tray.WindowListItem{ID: w.ID, Title: w.Title}
+				}
+				return items
+			},
+			func(windowID int) {
+				entry, ok := tracker.get(windowID)
+				if ok {
+					showWindow(entry.hwnd)
+				}
+			},
+		)
 
-	port, err := srv.Start()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return app.ExitError
-	}
+		// WindowManager 콜백으로 트레이 메뉴 갱신
+		wm.OnWindowOpened(func(_ window.WindowInfo) {
+			trayInst.RefreshMenu()
+		})
+		wm.OnWindowClosed(func(_ window.WindowInfo) {
+			trayInst.RefreshMenu()
+		})
 
-	// 9. 파일 감시 시작
-	w, err := watcher.NewWatcher(absPath)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Errorf("파일 감시 시작 실패: %v", err))
-		return app.ExitError
+		// 트레이를 별도 고루틴에서 실행
+		go trayInst.Run(
+			nil, // onReady: 추가 초기화 불필요
+			func() {
+				// 트레이 종료 시 모든 윈도우를 닫고 앱을 종료한다
+				tracker.terminateAll()
+				triggerQuit()
+			},
+		)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	changes := w.Watch(ctx)
+	defer cancel()
 
-	// errgroup으로 고루틴 생명주기 관리
-	eg, egCtx := errgroup.WithContext(ctx)
-
-	// 파일 변경 이벤트 -> 재렌더링 -> Broadcast 고루틴
-	eg.Go(func() error {
-		for {
-			select {
-			case <-egCtx.Done():
-				return nil
-			case _, ok := <-changes:
-				if !ok {
-					return nil // 채널 닫힘
-				}
-				newHTML, renderErr := app.RenderMarkdown(absPath)
-				if renderErr != nil {
-					srv.Broadcast(fmt.Sprintf("<p style='color:red;'>렌더링 오류: %v</p>", renderErr))
-					continue
-				}
-				srv.Broadcast(newHTML)
-			}
-		}
+	// 11. 첫 번째 윈도우 열기
+	_, err = openWindow(ctx, openWindowParams{
+		wm:          wm,
+		tracker:     tracker,
+		cfg:         cfg,
+		filePath:    absPath,
+		newViewerFn: viewer.New,
+		windowIndex: nextWindowIndex(),
+		shutdownCh:  threadShutdownCh,
 	})
-
-	// 10. WebView2 윈도우 생성
-	viewerCfg := viewer.Config{
-		Width:  cfg.WindowWidth,
-		Height: cfg.WindowHeight,
-	}
-	v, err := viewer.New(viewerCfg)
 	if err != nil {
-		cancel()
-		w.Close()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		srv.Shutdown(shutdownCtx)
-		fmt.Fprintln(os.Stderr, err)
+		if trayErr == nil {
+			trayInst.Quit()
+		}
+		wm.Shutdown()
+		fmt.Fprintln(os.Stderr, fmt.Errorf("첫 번째 윈도우 열기 실패: %v", err))
 		return app.ExitError
 	}
 
-	// 11. 윈도우 설정 및 Navigate
-	v.SetTitle(absPath)
-	v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", port))
-
 	// 12. Named Pipe 서버 시작 (다른 인스턴스로부터 파일 경로 수신)
-	eg.Go(func() error {
-		return app.ListenPipe(egCtx, func(newPath string) {
-			switchFile(newPath, srv, w, v)
-		})
-	})
+	// @MX:NOTE: [AUTO] 파이프 핸들러는 openWindow를 통해 새 윈도우를 생성하거나 기존 윈도우를 활성화한다
+	go func() {
+		_ = app.ListenPipe(ctx, func(newPath string) {
+			result := handlePipeMessage(wm, newPath, func(windowID int) {
+				// 이미 열린 파일이면 기존 윈도우를 활성화한다
+				entry, ok := tracker.get(windowID)
+				if ok {
+					showWindow(entry.hwnd)
+				}
+			})
+			switch result {
+			case pipeResultNewWindow:
+				// wm.OpenFile은 handlePipeMessage에서 이미 호출됨 (서버/감시자 생성 완료)
+				// 해당 윈도우에 대한 WebView2 윈도우를 열어야 한다
+				// 하지만 handlePipeMessage는 windowID를 반환하지 않으므로
+				// FindByPath로 다시 조회한다
+				winInfo, found := wm.FindByPath(newPath)
+				if found {
+					idx := nextWindowIndex()
+					go func() {
+						runtime.LockOSThread()
+						defer runtime.UnlockOSThread()
 
-	// 13. 시스템 트레이 시작
-	hwnd := windows.HWND(uintptr(v.Window()))
-	trayInst, trayErr := tray.NewTray(assets.IconData)
-	if trayErr == nil {
-		eg.Go(func() error {
-			trayInst.Run(
-				func() { showWindow(hwnd) },
-				func() { v.Terminate() },
-			)
-			return nil
+						viewerCfg := viewer.Config{
+							Width:  cfg.WindowWidth,
+							Height: cfg.WindowHeight,
+						}
+						v, vErr := viewer.New(viewerCfg)
+						if vErr != nil {
+							log.Printf("파이프: WebView2 윈도우 생성 실패: %v", vErr)
+							_ = wm.CloseWindow(winInfo.ID)
+							return
+						}
+
+						v.SetTitle(newPath)
+						v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", winInfo.Port))
+
+						hwnd := windows.HWND(uintptr(v.Window()))
+						tracker.add(winInfo.ID, v, hwnd)
+
+						if idx > 0 {
+							x, y := calculateCascadePosition(idx)
+							setCascadePosition(hwnd, x, y)
+						}
+
+						v.Run()
+
+						// 서버/감시자 정리
+						tracker.remove(winInfo.ID)
+						_ = wm.CloseWindow(winInfo.ID)
+
+						// 메시지 펌프 유지 (COM Apartment 크로스-스레드 콜백 처리)
+						pumpMessagesUntilShutdown(threadShutdownCh)
+
+						// 앱 종료 시 viewer 정리
+						v.Destroy()
+					}()
+				}
+			case pipeResultError:
+				log.Printf("파이프 파일 열기 실패: %s", newPath)
+			}
 		})
+	}()
+
+	// 13. 종료 대기: 모든 윈도우가 닫히거나 트레이에서 종료를 선택할 때까지 대기
+	select {
+	case <-tracker.allClosed:
+		// 모든 윈도우가 닫힘 -> 앱 종료
+	case <-quitCh:
+		// 트레이에서 종료 선택 -> 모든 윈도우 종료 대기
+		tracker.wait()
 	}
 
-	// 14. 윈도우 서브클래싱: 최소화 시 트레이로 숨기기
-	if trayErr == nil {
-		subclassWindow(hwnd, v)
-	}
-
-	// 15. WebView2 이벤트 루프 (윈도우 닫힐 때까지 블로킹)
-	v.Run()
-
-	// 16. 종료 처리: 설정 저장 -> 리소스 정리
+	// 14. 종료 처리: 설정 저장 -> 리소스 정리
 	cfg.LastOpenedFile = absPath
-	cfg.Theme = srv.GetTheme()
 	_ = config.Save(cfg)
 
 	if trayErr == nil {
@@ -288,38 +730,78 @@ func run() int {
 	}
 
 	cancel()
-	w.Close()
 
-	// 모든 고루틴 종료 대기
-	_ = eg.Wait()
+	// WindowManager가 모든 윈도우의 서버/감시자를 정리한다
+	wm.Shutdown()
 
-	v.Destroy()
+	// OS 스레드 유지 채널을 닫아 고루틴들이 v.Destroy() 후 종료되도록 한다
+	close(threadShutdownCh)
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdownCancel()
-	srv.Shutdown(shutdownCtx)
+	// 고루틴들이 v.Destroy()를 완료할 시간을 준다
+	time.Sleep(100 * time.Millisecond)
 
 	return app.ExitSuccess
 }
 
-// switchFile 은 파이프로 수신한 새 파일 경로로 전환한다.
-// 마크다운 재렌더링, 서버 업데이트, 감시 대상 변경, 윈도우 타이틀 변경을 수행한다.
-func switchFile(newPath string, srv *server.Server, w *watcher.Watcher, v *viewer.Viewer) {
-	rendered, err := app.RenderMarkdown(newPath)
+// createServerForFile 은 파일에 대한 HTTP 서버를 생성하고 시작한다.
+// 마크다운을 렌더링하고 서버에 초기 콘텐츠를 설정한다.
+func createServerForFile(filePath string, cfg *config.Config) (*serverAdapter, error) {
+	rendered, err := app.RenderMarkdown(filePath)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	filename := filepath.Base(newPath)
+	srv, err := server.NewServer()
+	if err != nil {
+		return nil, fmt.Errorf("서버 생성 실패: %w", err)
+	}
+
+	filename := filepath.Base(filePath)
 	srv.SetTitle(filename + " - WinMarkdownViewer")
-	srv.Broadcast(rendered)
+	srv.SetFontSize(cfg.FontSize)
+	srv.SetTheme(cfg.Theme)
+	srv.SetContent(rendered)
 
-	_ = w.SwitchFile(newPath)
+	port, err := srv.Start()
+	if err != nil {
+		return nil, err
+	}
 
-	// UI 조작은 메인 스레드에서 실행해야 한다
-	v.Dispatch(func() {
-		v.SetTitle(newPath)
-	})
+	return &serverAdapter{srv: srv, port: port}, nil
+}
+
+// createWatcherForFile 은 파일 감시자를 생성하고 변경 이벤트 시 서버로 브로드캐스트하는 고루틴을 시작한다.
+// @MX:NOTE: [AUTO] 각 윈도우별 독립적인 감시자와 재렌더링 고루틴을 생성한다
+func createWatcherForFile(filePath string, srvAdapter *serverAdapter) (window.Closeable, error) {
+	w, err := watcher.NewWatcher(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("파일 감시 시작 실패: %w", err)
+	}
+
+	ctx, watchCancel := context.WithCancel(context.Background())
+	changes := w.Watch(ctx)
+
+	// 파일 변경 이벤트 -> 재렌더링 -> 서버 브로드캐스트 고루틴
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case _, ok := <-changes:
+				if !ok {
+					return
+				}
+				newHTML, renderErr := app.RenderMarkdown(filePath)
+				if renderErr != nil {
+					srvAdapter.Broadcast(fmt.Sprintf("<p style='color:red;'>렌더링 오류: %v</p>", renderErr))
+					continue
+				}
+				srvAdapter.Broadcast(newHTML)
+			}
+		}
+	}()
+
+	return &watcherAdapter{w: w, cancel: watchCancel}, nil
 }
 
 // showWindow 는 숨겨진 윈도우를 표시하고 포그라운드로 가져온다.

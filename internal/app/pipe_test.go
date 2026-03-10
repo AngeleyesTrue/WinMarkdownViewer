@@ -445,6 +445,177 @@ func TestPipe_상대경로서버측무시(t *testing.T) {
 	cancel()
 }
 
+// TestParsePipeMessage_OpenPrefix 는 OPEN: 접두사가 있는 메시지에서
+// 파일 경로를 올바르게 추출하는지 검증한다 (R6.1).
+func TestParsePipeMessage_OpenPrefix(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{
+			name:    "일반_경로",
+			message: `OPEN:C:\docs\readme.md`,
+			want:    `C:\docs\readme.md`,
+		},
+		{
+			name:    "공백_포함_경로",
+			message: `OPEN:C:\My Documents\readme.md`,
+			want:    `C:\My Documents\readme.md`,
+		},
+		{
+			name:    "콜론_포함_Windows_경로",
+			message: `OPEN:D:\projects\test.md`,
+			want:    `D:\projects\test.md`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := app.ParsePipeMessage(tt.message)
+			if got != tt.want {
+				t.Errorf("ParsePipeMessage(%q) = %q, want %q", tt.message, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParsePipeMessage_NoPrefix 는 OPEN: 접두사가 없는 메시지를
+// 그대로 파일 경로로 반환하는지 검증한다 (R6.2 하위 호환성).
+func TestParsePipeMessage_NoPrefix(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    string
+	}{
+		{
+			name:    "절대경로_하위호환",
+			message: `C:\docs\readme.md`,
+			want:    `C:\docs\readme.md`,
+		},
+		{
+			name:    "UNC_경로",
+			message: `\\server\share\file.md`,
+			want:    `\\server\share\file.md`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := app.ParsePipeMessage(tt.message)
+			if got != tt.want {
+				t.Errorf("ParsePipeMessage(%q) = %q, want %q", tt.message, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestParsePipeMessage_EmptyPath 는 OPEN: 접두사 뒤에 경로가 없는 경우
+// 빈 문자열을 반환하는지 검증한다.
+func TestParsePipeMessage_EmptyPath(t *testing.T) {
+	got := app.ParsePipeMessage("OPEN:")
+	if got != "" {
+		t.Errorf("ParsePipeMessage(\"OPEN:\") = %q, want \"\"", got)
+	}
+}
+
+// TestSendPath_프로토콜형식 은 SendPath가 OPEN: 접두사를 붙여 전송하는지 검증한다 (R6.1).
+func TestSendPath_프로토콜형식(t *testing.T) {
+	// 임시 파일 생성
+	tmpFile := filepath.Join(t.TempDir(), "proto_test.md")
+	if err := os.WriteFile(tmpFile, []byte("# Protocol Test"), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var rawReceived string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	// rawWriteToPipe의 반대: 원시 데이터를 수신하는 서버
+	// ListenPipe를 사용하되 ParsePipeMessage 통합 전의 원시 데이터를 확인하기 어려우므로
+	// 대신 ListenPipe + handler를 사용하여 최종 파싱 결과를 확인한다.
+	handler := func(filePath string) {
+		mu.Lock()
+		rawReceived = filePath
+		mu.Unlock()
+		close(done)
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// SendPath로 전송
+	if err := app.SendPath(tmpFile); err != nil {
+		t.Fatalf("SendPath() 오류: %v", err)
+	}
+
+	select {
+	case <-done:
+		mu.Lock()
+		// SendPath가 OPEN: 접두사를 붙여 보내고, ListenPipe가 파싱하면 원래 경로가 나와야 함
+		if rawReceived != tmpFile {
+			t.Errorf("수신된 경로 = %q, want %q", rawReceived, tmpFile)
+		}
+		mu.Unlock()
+	case <-time.After(3 * time.Second):
+		t.Fatal("핸들러가 호출되지 않았다 (타임아웃)")
+	}
+
+	cancel()
+}
+
+// TestPipe_하위호환_접두사없는경로 는 OPEN: 접두사 없이 직접 전송된 경로도
+// 서버가 올바르게 처리하는지 검증한다 (R6.2).
+func TestPipe_하위호환_접두사없는경로(t *testing.T) {
+	// 임시 파일 생성
+	tmpFile := filepath.Join(t.TempDir(), "compat_test.md")
+	if err := os.WriteFile(tmpFile, []byte("# Compat Test"), 0644); err != nil {
+		t.Fatalf("테스트 파일 생성 실패: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var received string
+	var mu sync.Mutex
+	done := make(chan struct{})
+
+	handler := func(filePath string) {
+		mu.Lock()
+		received = filePath
+		mu.Unlock()
+		close(done)
+	}
+
+	go func() {
+		_ = app.ListenPipe(ctx, handler)
+	}()
+	time.Sleep(200 * time.Millisecond)
+
+	// OPEN: 접두사 없이 원시 경로를 직접 전송 (하위 호환성)
+	if err := rawWriteToPipe(t, []byte(tmpFile)); err != nil {
+		t.Fatalf("rawWriteToPipe 오류: %v", err)
+	}
+
+	select {
+	case <-done:
+		mu.Lock()
+		if received != tmpFile {
+			t.Errorf("수신된 경로 = %q, want %q", received, tmpFile)
+		}
+		mu.Unlock()
+	case <-time.After(3 * time.Second):
+		t.Fatal("핸들러가 호출되지 않았다 (타임아웃)")
+	}
+
+	cancel()
+}
+
 // TestPipe_유효한파일서버측전달 은 직접 파이프에 유효한 파일 경로를 전송했을 때
 // 서버가 핸들러를 정상적으로 호출하는지 검증한다.
 func TestPipe_유효한파일서버측전달(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -154,7 +155,8 @@ func listenOnce(ctx context.Context, handler func(filePath string)) error {
 		rawData = rawData[:idx]
 	}
 
-	filePath := string(rawData)
+	// 프로토콜 메시지 파싱 (OPEN: 접두사 처리)
+	filePath := ParsePipeMessage(string(rawData))
 
 	// 유효성 검증: 빈 문자열 무시
 	if len(filePath) == 0 {
@@ -207,6 +209,16 @@ func cancelIoEx(handle windows.Handle) {
 	procCancelIoEx.Call(uintptr(handle), 0)
 }
 
+// ParsePipeMessage 는 파이프로 수신된 메시지를 파싱하여 파일 경로를 추출한다.
+// OPEN: 접두사가 있으면 접두사를 제거하고 파일 경로를 반환한다.
+// 접두사가 없으면 메시지를 그대로 파일 경로로 반환한다 (하위 호환성).
+func ParsePipeMessage(message string) string {
+	if strings.HasPrefix(message, PipeCommandOpen) {
+		return message[len(PipeCommandOpen):]
+	}
+	return message
+}
+
 // SendPath 는 Named Pipe를 통해 파일 경로를 전송한다.
 // 빈 문자열이나 존재하지 않는 파일은 에러를 반환한다.
 func SendPath(filePath string) error {
@@ -247,8 +259,8 @@ func SendPath(filePath string) error {
 	}
 	defer windows.CloseHandle(handle)
 
-	// 데이터 전송
-	data := []byte(filePath)
+	// OPEN: 접두사를 붙여 데이터 전송
+	data := []byte(PipeCommandOpen + filePath)
 	var bytesWritten uint32
 	err = windows.WriteFile(handle, data, &bytesWritten, nil)
 	if err != nil {
