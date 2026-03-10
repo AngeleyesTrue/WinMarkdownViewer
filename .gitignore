@@ -19,6 +19,7 @@ cover.out
 cover.html
 cpu.prof
 mem.prof
+*.syso
 
 # ===========================================
 # Build Artifacts & Distribution

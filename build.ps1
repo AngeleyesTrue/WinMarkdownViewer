@@ -36,6 +36,36 @@ function Test-GoCommand {
 
 # --- 타겟 함수 ---
 
+function Invoke-GenerateVersionInfo {
+    $versionJson = "cmd/winmdview/versioninfo.json"
+    $sysoFile = "cmd/winmdview/resource.syso"
+
+    if (-not (Test-Path $versionJson)) {
+        Write-Info "versioninfo.json 이 없습니다. 리소스 임베딩을 건너뜁니다."
+        return
+    }
+
+    $null = Get-Command "goversioninfo" -ErrorAction SilentlyContinue
+    if (-not $?) {
+        Write-Info "goversioninfo 가 설치되지 않았습니다. 리소스 임베딩을 건너뜁니다."
+        Write-Info "설치: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest"
+        return
+    }
+
+    Write-Info "goversioninfo 로 리소스 생성 중..."
+    Push-Location "cmd/winmdview"
+    try {
+        goversioninfo -64 -o resource.syso versioninfo.json
+    } finally {
+        Pop-Location
+    }
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] goversioninfo 실패" -ForegroundColor Red
+        exit 1
+    }
+    Write-Success "리소스 파일 생성: $sysoFile"
+}
+
 function Invoke-Build {
     Write-Step "릴리스 빌드"
 
@@ -47,6 +77,8 @@ function Invoke-Build {
     if (-not (Test-Path "dist")) {
         New-Item -ItemType Directory -Path "dist" -Force | Out-Null
     }
+
+    Invoke-GenerateVersionInfo
 
     $ldflags = "-s -w -H windowsgui"
     Write-Info "ldflags: $ldflags"
@@ -72,6 +104,8 @@ function Invoke-Dev {
     if (-not (Test-Path "dist")) {
         New-Item -ItemType Directory -Path "dist" -Force | Out-Null
     }
+
+    Invoke-GenerateVersionInfo
 
     Write-Info "콘솔 창 표시 모드 (디버그용)"
 
@@ -105,7 +139,7 @@ function Invoke-Test {
 function Invoke-Clean {
     Write-Step "정리"
 
-    $targets = @("dist/winmdview.exe", "dist/winmdview-dev.exe", "winmdview.exe", "winmdview-dev.exe", "coverage.out")
+    $targets = @("dist/winmdview.exe", "dist/winmdview-dev.exe", "winmdview.exe", "winmdview-dev.exe", "coverage.out", "cmd/winmdview/resource.syso")
 
     # *.out 파일도 정리 대상에 추가
     $outFiles = Get-ChildItem -Path "." -Filter "*.out" -File -ErrorAction SilentlyContinue

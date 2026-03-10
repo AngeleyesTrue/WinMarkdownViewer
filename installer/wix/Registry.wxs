@@ -41,6 +41,14 @@
         </RegistryKey>
       </Component>
 
+      <!-- DefaultIcon: .md 파일에 앱 아이콘 표시 -->
+      <Component Id="ProgIdDefaultIconReg" Guid="*">
+        <RegistryKey Root="HKCU"
+                     Key="Software\Classes\WinMarkdownViewer.md\DefaultIcon">
+          <RegistryValue Type="string" Value="[INSTALLFOLDER]$(var.ExeFileName),0" />
+        </RegistryKey>
+      </Component>
+
       <!-- OpenWithProgids에 ProgID 추가 -->
       <Component Id="OpenWithProgidsReg" Guid="*">
         <RegistryKey Root="HKCU"
