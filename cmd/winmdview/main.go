@@ -39,11 +39,6 @@ const (
 	gwlWndProc   = -4     // GWL_WNDPROC (SetWindowLongPtrW 인덱스)
 )
 
-// 캐스케이드 윈도우 위치 상수
-const (
-	cascadeOffset = 30 // 윈도우 캐스케이드 오프셋 (px)
-)
-
 // Windows 메시지 펌프 상수
 const (
 	pmRemove = 0x0001 // PM_REMOVE
@@ -57,8 +52,6 @@ var (
 	procCallWindowProcW     = user32.NewProc("CallWindowProcW")
 	procSetWindowLongPtrW   = user32.NewProc("SetWindowLongPtrW")
 	procDefWindowProcW      = user32.NewProc("DefWindowProcW")
-	procGetSystemMetrics    = user32.NewProc("GetSystemMetrics")
-	procSetWindowPos        = user32.NewProc("SetWindowPos")
 	procPeekMessageW        = user32.NewProc("PeekMessageW")
 	procTranslateMessage    = user32.NewProc("TranslateMessage")
 	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
@@ -315,7 +308,6 @@ type openWindowParams struct {
 	cfg           *config.Config
 	filePath      string
 	newViewerFn   viewerFactory
-	windowIndex   int          // 캐스케이드 위치 계산용 인덱스
 	shutdownCh    <-chan struct{} // 앱 종료 시그널 (OS 스레드 유지용)
 }
 
@@ -336,10 +328,7 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 		return 0, fmt.Errorf("윈도우 정보 조회 실패: windowID=%d", windowID)
 	}
 
-	// 3. 캐스케이드 위치 계산
-	offsetX, offsetY := calculateCascadePosition(params.windowIndex)
-
-	// 4. 별도 고루틴에서 WebView2 윈도우 실행
+	// 3. 별도 고루틴에서 WebView2 윈도우 실행
 	// @MX:WARN: [AUTO] runtime.LockOSThread 필수 - WebView2는 COM 기반이므로 스레드 고정 필요
 	// @MX:REASON: go-webview2는 OS 스레드에 고정되어야 정상 동작한다 (PoC 검증 완료)
 	errCh := make(chan error, 1)
@@ -366,11 +355,6 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 		// HWND 획득 및 tracker 등록
 		hwnd := windows.HWND(uintptr(v.Window()))
 		params.tracker.add(windowID, v, hwnd)
-
-		// 캐스케이드 위치 적용 (첫 번째 윈도우가 아닌 경우)
-		if params.windowIndex > 0 {
-			setCascadePosition(hwnd, offsetX, offsetY)
-		}
 
 		// WebView2 이벤트 루프 (윈도우 닫힐 때까지 블로킹)
 		v.Run()
@@ -399,48 +383,6 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 	}
 
 	return windowID, nil
-}
-
-// calculateCascadePosition 은 캐스케이드 윈도우 위치를 계산한다.
-// windowIndex 가 0이면 기본 위치 (센터), 1 이상이면 +30px 오프셋.
-// 화면을 벗어나면 (0, 0)으로 리셋한다.
-func calculateCascadePosition(windowIndex int) (x, y int) {
-	if windowIndex <= 0 {
-		return 0, 0
-	}
-
-	x = windowIndex * cascadeOffset
-	y = windowIndex * cascadeOffset
-
-	// 화면 크기 확인
-	screenW, _ := getScreenSize()
-	if screenW > 0 && (x > screenW/2 || y > screenW/2) {
-		return 0, 0
-	}
-
-	return x, y
-}
-
-// getScreenSize 는 주 모니터의 화면 크기를 반환한다.
-func getScreenSize() (width, height int) {
-	// SM_CXSCREEN = 0, SM_CYSCREEN = 1
-	w, _, _ := procGetSystemMetrics.Call(0)
-	h, _, _ := procGetSystemMetrics.Call(1)
-	return int(w), int(h)
-}
-
-// setCascadePosition 은 윈도우를 지정된 좌표로 이동한다.
-// SWP_NOSIZE | SWP_NOZORDER 플래그로 크기와 Z-order는 유지한다.
-func setCascadePosition(hwnd windows.HWND, x, y int) {
-	const swpNoSize = 0x0001
-	const swpNoZOrder = 0x0004
-	procSetWindowPos.Call(
-		uintptr(hwnd),
-		0, // hWndInsertAfter (무시됨, SWP_NOZORDER)
-		uintptr(x), uintptr(y),
-		0, 0, // cx, cy (무시됨, SWP_NOSIZE)
-		swpNoSize|swpNoZOrder,
-	)
 }
 
 // pumpMessagesUntilShutdown 은 현재 OS 스레드에서 Windows 메시지를 계속 펌핑한다.
@@ -574,17 +516,6 @@ func run() int {
 		}
 	}
 
-	// 윈도우 인덱스 카운터 (캐스케이드 위치 계산용)
-	var windowIndexMu sync.Mutex
-	windowIndex := 0
-	nextWindowIndex := func() int {
-		windowIndexMu.Lock()
-		defer windowIndexMu.Unlock()
-		idx := windowIndex
-		windowIndex++
-		return idx
-	}
-
 	// 10. 시스템 트레이 생성 및 시작
 	trayInst, trayErr := tray.NewTray(assets.IconData)
 	if trayErr == nil {
@@ -635,7 +566,6 @@ func run() int {
 		cfg:         cfg,
 		filePath:    absPath,
 		newViewerFn: viewer.New,
-		windowIndex: nextWindowIndex(),
 		shutdownCh:  threadShutdownCh,
 	})
 	if err != nil {
@@ -666,7 +596,6 @@ func run() int {
 				// FindByPath로 다시 조회한다
 				winInfo, found := wm.FindByPath(newPath)
 				if found {
-					idx := nextWindowIndex()
 					go func() {
 						runtime.LockOSThread()
 						defer runtime.UnlockOSThread()
@@ -687,11 +616,6 @@ func run() int {
 
 						hwnd := windows.HWND(uintptr(v.Window()))
 						tracker.add(winInfo.ID, v, hwnd)
-
-						if idx > 0 {
-							x, y := calculateCascadePosition(idx)
-							setCascadePosition(hwnd, x, y)
-						}
 
 						v.Run()
 
