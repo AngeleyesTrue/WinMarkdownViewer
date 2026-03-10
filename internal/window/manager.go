@@ -106,10 +106,12 @@ func (m *WindowManager) OpenFile(filePath string) (int, error) {
 	}
 	f.Close()
 
+	// 파일 I/O(Stat, Open)는 Lock 밖에서 수행하여 I/O 중 Lock 점유를 방지한다.
+	// 동시에 같은 파일을 여는 경우, 아래 Lock 내부의 중복 확인(step 4)이 올바르게 처리한다.
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 4. 이미 열린 파일인지 확인
+	// 4. 이미 열린 파일인지 확인 (Lock 내부에서 수행하여 레이스 조건 방지)
 	for _, w := range m.windows {
 		if w.filePath == absPath {
 			return 0, &FileAlreadyOpenError{WindowID: w.id}
@@ -149,7 +151,9 @@ func (m *WindowManager) OpenFile(filePath string) (int, error) {
 	win := NewWindow(id, absPath, srv, w)
 	m.windows[id] = win
 
-	// 10. 콜백 실행
+	// 10. 콜백 실행 (비동기)
+	// 주의: Lock을 보유한 상태에서 호출되므로, 콜백 내에서 Manager 메서드 호출 시
+	// 데드락을 방지하기 위해 반드시 goroutine으로 실행해야 한다.
 	if m.onOpened != nil {
 		info := win.Info()
 		go m.onOpened(info)

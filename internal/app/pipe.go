@@ -59,6 +59,9 @@ func ListenPipe(ctx context.Context, handler func(filePath string)) error {
 		}
 
 		// 성공 시 리셋
+		if consecutiveErrors > 0 {
+			log.Printf("파이프 서버 복구됨 (이전 연속 에러: %d회)", consecutiveErrors)
+		}
 		consecutiveErrors = 0
 		backoff = 100 * time.Millisecond
 	}
@@ -149,6 +152,11 @@ func listenOnce(ctx context.Context, handler func(filePath string)) error {
 		return nil // 빈 데이터 무시
 	}
 
+	// 버퍼 크기 초과 시 경로 절삭 경고
+	if bytesRead >= MaxPipeMessageSize {
+		log.Printf("경고: 파이프 메시지가 버퍼 크기(%d)에 도달하여 절삭되었을 수 있습니다", MaxPipeMessageSize)
+	}
+
 	// 널 바이트 제거 (악의적 입력 방어)
 	rawData := buf[:bytesRead]
 	if idx := bytes.IndexByte(rawData, 0); idx >= 0 {
@@ -203,10 +211,12 @@ func waitForEventOrContext(ctx context.Context, event, pipeHandle windows.Handle
 
 // cancelIoEx 는 진행 중인 I/O 작업을 취소한다.
 func cancelIoEx(handle windows.Handle) {
-	// CancelIoEx 호출
 	modkernel32 := windows.NewLazySystemDLL("kernel32.dll")
 	procCancelIoEx := modkernel32.NewProc("CancelIoEx")
-	procCancelIoEx.Call(uintptr(handle), 0)
+	ret, _, err := procCancelIoEx.Call(uintptr(handle), 0)
+	if ret == 0 {
+		log.Printf("CancelIoEx 실패: %v", err)
+	}
 }
 
 // ParsePipeMessage 는 파이프로 수신된 메시지를 파싱하여 파일 경로를 추출한다.

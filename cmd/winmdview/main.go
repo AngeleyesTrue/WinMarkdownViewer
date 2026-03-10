@@ -361,7 +361,9 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 
 		// 윈도우 닫힘 -> 서버/감시자 정리
 		params.tracker.remove(windowID)
-		_ = params.wm.CloseWindow(windowID)
+		if closeErr := params.wm.CloseWindow(windowID); closeErr != nil {
+			log.Printf("윈도우 %d 리소스 정리 실패: %v", windowID, closeErr)
+		}
 
 		// @MX:WARN: [AUTO] 윈도우 닫힌 후에도 메시지 펌프를 유지해야 한다.
 		// @MX:REASON: WebView2의 COM 객체가 이 스레드의 Apartment에 바인딩되어 있어,
@@ -378,7 +380,9 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 	// viewer 생성 결과 대기
 	if err := <-errCh; err != nil {
 		// viewer 생성 실패 시 서버/감시자도 정리
-		_ = params.wm.CloseWindow(windowID)
+		if closeErr := params.wm.CloseWindow(windowID); closeErr != nil {
+			log.Printf("윈도우 %d 정리 실패 (viewer 생성 실패 후): %v", windowID, closeErr)
+		}
 		return 0, fmt.Errorf("WebView2 윈도우 생성 실패: %w", err)
 	}
 
@@ -580,7 +584,7 @@ func run() int {
 	// 12. Named Pipe 서버 시작 (다른 인스턴스로부터 파일 경로 수신)
 	// @MX:NOTE: [AUTO] 파이프 핸들러는 openWindow를 통해 새 윈도우를 생성하거나 기존 윈도우를 활성화한다
 	go func() {
-		_ = app.ListenPipe(ctx, func(newPath string) {
+		if err := app.ListenPipe(ctx, func(newPath string) {
 			result := handlePipeMessage(wm, newPath, func(windowID int) {
 				// 이미 열린 파일이면 기존 윈도우를 활성화한다
 				entry, ok := tracker.get(windowID)
@@ -607,7 +611,9 @@ func run() int {
 						v, vErr := viewer.New(viewerCfg)
 						if vErr != nil {
 							log.Printf("파이프: WebView2 윈도우 생성 실패: %v", vErr)
-							_ = wm.CloseWindow(winInfo.ID)
+							if closeErr := wm.CloseWindow(winInfo.ID); closeErr != nil {
+								log.Printf("윈도우 %d 정리 실패: %v", winInfo.ID, closeErr)
+							}
 							return
 						}
 
@@ -621,7 +627,9 @@ func run() int {
 
 						// 서버/감시자 정리
 						tracker.remove(winInfo.ID)
-						_ = wm.CloseWindow(winInfo.ID)
+						if closeErr := wm.CloseWindow(winInfo.ID); closeErr != nil {
+							log.Printf("윈도우 %d 리소스 정리 실패: %v", winInfo.ID, closeErr)
+						}
 
 						// 메시지 펌프 유지 (COM Apartment 크로스-스레드 콜백 처리)
 						pumpMessagesUntilShutdown(threadShutdownCh)
@@ -633,7 +641,9 @@ func run() int {
 			case pipeResultError:
 				log.Printf("파이프 파일 열기 실패: %s", newPath)
 			}
-		})
+		}); err != nil && ctx.Err() == nil {
+			log.Printf("Named Pipe 서버 오류: %v", err)
+		}
 	}()
 
 	// 13. 종료 대기: 모든 윈도우가 닫히거나 트레이에서 종료를 선택할 때까지 대기
