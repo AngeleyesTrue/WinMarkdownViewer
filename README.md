@@ -20,6 +20,7 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **시스템 트레이**: 최소화 시 시스템 트레이로 이동, 트레이에서 복원/종료 지원
 - **단일 인스턴스**: 이미 실행 중이면 새 파일을 기존 인스턴스의 새 윈도우로 전달 (Named Pipe)
 - **멀티 윈도우**: 여러 .md 파일을 각각 별도 윈도우에서 동시에 열기 가능 (최대 10개)
+- **애플리케이션 아이콘**: 멀티사이즈 아이콘(16~256px) 적용 — exe 파일, 타이틀바, .md 파일 연결, 인스톨러 전 영역 지원
 
 ## 설치
 
@@ -41,12 +42,13 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 .\installer\build-msi.ps1 -Version "1.0.0"
 ```
 
-빌드 요구 사항: Go 1.26+, .NET SDK 6+, WiX Toolset v4
+빌드 요구 사항: Go 1.26+, .NET SDK 6+, WiX Toolset v4, goversioninfo
 
 ## 사전 요구 사항
 
 - **Go 1.26 이상**
 - **Microsoft Edge WebView2 Runtime**
+- **goversioninfo** (Windows 리소스 아이콘 임베딩, 빌드 시 필요): `go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest`
 
 WebView2 Runtime이 설치되어 있지 않으면 설치 안내 메시지가 표시됩니다.
 다운로드: https://developer.microsoft.com/microsoft-edge/webview2/

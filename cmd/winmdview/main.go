@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log"
@@ -52,9 +53,12 @@ var (
 	procCallWindowProcW     = user32.NewProc("CallWindowProcW")
 	procSetWindowLongPtrW   = user32.NewProc("SetWindowLongPtrW")
 	procDefWindowProcW      = user32.NewProc("DefWindowProcW")
-	procPeekMessageW        = user32.NewProc("PeekMessageW")
-	procTranslateMessage    = user32.NewProc("TranslateMessage")
-	procDispatchMessageW    = user32.NewProc("DispatchMessageW")
+	procPeekMessageW             = user32.NewProc("PeekMessageW")
+	procTranslateMessage         = user32.NewProc("TranslateMessage")
+	procDispatchMessageW         = user32.NewProc("DispatchMessageW")
+	procCreateIconFromResourceEx = user32.NewProc("CreateIconFromResourceEx")
+	procSendMessageW             = user32.NewProc("SendMessageW")
+	procDestroyIcon              = user32.NewProc("DestroyIcon")
 )
 
 // appFlags 는 CLI 플래그 파싱 결과를 담는 구조체이다.
@@ -352,8 +356,9 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 		v.SetTitle(params.filePath)
 		v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", winInfo.Port))
 
-		// HWND 획득 및 tracker 등록
+		// HWND 획득 및 아이콘 설정, tracker 등록
 		hwnd := windows.HWND(uintptr(v.Window()))
+		setWindowIcon(hwnd, assets.IconData)
 		params.tracker.add(windowID, v, hwnd)
 
 		// WebView2 이벤트 루프 (윈도우 닫힐 때까지 블로킹)
@@ -621,6 +626,7 @@ func run() int {
 						v.Navigate(fmt.Sprintf("http://127.0.0.1:%d", winInfo.Port))
 
 						hwnd := windows.HWND(uintptr(v.Window()))
+						setWindowIcon(hwnd, assets.IconData)
 						tracker.add(winInfo.ID, v, hwnd)
 
 						v.Run()
@@ -736,6 +742,108 @@ func createWatcherForFile(filePath string, srvAdapter *serverAdapter) (window.Cl
 	}()
 
 	return &watcherAdapter{w: w, cancel: watchCancel}, nil
+}
+
+// setWindowIcon 은 윈도우의 타이틀바 아이콘을 ICO 바이트에서 설정한다.
+// ICO 파일을 파싱하여 16x16(ICON_SMALL)과 32x32(ICON_BIG)에 가장 가까운
+// 이미지를 찾아 CreateIconFromResourceEx로 HICON을 생성한 뒤 WM_SETICON을 보낸다.
+func setWindowIcon(hwnd windows.HWND, iconData []byte) {
+	if len(iconData) < 6 {
+		return
+	}
+
+	// ICO 디렉토리 엔트리
+	type iconDirEntry struct {
+		width  byte
+		height byte
+		size   uint32
+		offset uint32
+	}
+
+	count := int(binary.LittleEndian.Uint16(iconData[4:6]))
+
+	// 모든 엔트리 파싱
+	entries := make([]iconDirEntry, 0, count)
+	for i := 0; i < count; i++ {
+		off := 6 + i*16
+		if off+16 > len(iconData) {
+			break
+		}
+		entries = append(entries, iconDirEntry{
+			width:  iconData[off],
+			height: iconData[off+1],
+			size:   binary.LittleEndian.Uint32(iconData[off+8 : off+12]),
+			offset: binary.LittleEndian.Uint32(iconData[off+12 : off+16]),
+		})
+	}
+
+	// 특정 크기에 가장 가까운 엔트리 인덱스 반환
+	findBest := func(targetSize byte) int {
+		bestIdx := -1
+		bestDiff := 999
+		for i, e := range entries {
+			w := int(e.width)
+			if w == 0 {
+				w = 256
+			}
+			diff := w - int(targetSize)
+			if diff < 0 {
+				diff = -diff
+			}
+			if diff < bestDiff {
+				bestDiff = diff
+				bestIdx = i
+			}
+		}
+		return bestIdx
+	}
+
+	// ICO 엔트리로부터 HICON 생성
+	createIcon := func(entry iconDirEntry, size int) uintptr {
+		end := entry.offset + entry.size
+		if int(end) > len(iconData) {
+			return 0
+		}
+		data := iconData[entry.offset:end]
+		h, _, _ := procCreateIconFromResourceEx.Call(
+			uintptr(unsafe.Pointer(&data[0])),
+			uintptr(entry.size),
+			1,          // fIcon = TRUE
+			0x00030000, // 버전
+			uintptr(size),
+			uintptr(size),
+			0, // 플래그
+		)
+		return h
+	}
+
+	const (
+		wmSetIcon = 0x0080
+		iconSmall = 0
+		iconBig   = 1
+	)
+
+	// 작은 아이콘 (16x16)
+	// @MX:WARN: [AUTO] WM_SETICON은 이전 아이콘 핸들을 반환한다. 이전 핸들만 DestroyIcon으로 해제한다.
+	// @MX:REASON: 새 아이콘은 윈도우가 사용 중이므로 즉시 해제하면 안 된다 (프로세스 종료 시 OS가 정리)
+	if idx := findBest(16); idx >= 0 {
+		if h := createIcon(entries[idx], 16); h != 0 {
+			prev, _, _ := procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconSmall, h)
+			if prev != 0 {
+				procDestroyIcon.Call(prev)
+			}
+		}
+	}
+
+	// 큰 아이콘 (32x32)
+	if idx := findBest(32); idx >= 0 {
+		if h := createIcon(entries[idx], 32); h != 0 {
+			prev, _, _ := procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconBig, h)
+			if prev != 0 {
+				procDestroyIcon.Call(prev)
+			}
+		}
+	}
 }
 
 // showWindow 는 숨겨진 윈도우를 표시하고 포그라운드로 가져온다.

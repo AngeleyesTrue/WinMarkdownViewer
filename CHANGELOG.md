@@ -5,6 +5,17 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.0.0/)를 따르며,
 버전 관리는 [Semantic Versioning](https://semver.org/lang/ko/)을 따릅니다.
 
+## [1.0.4] - 2026-03-10
+
+### 추가 (SPEC-ICON-001: 애플리케이션 아이콘 개선)
+
+- 멀티사이즈 아이콘 적용 (16, 32, 48, 64, 128, 256px)
+- goversioninfo로 exe에 Windows 리소스 아이콘 임베딩
+- WebView2 윈도우 타이틀바에 커스텀 아이콘 설정 (WM_SETICON)
+- .md 파일 연결 시 앱 아이콘 표시 (DefaultIcon 레지스트리)
+- 빌드 파이프라인에 goversioninfo 단계 통합 (build.ps1, build-msi.ps1)
+- 멀티사이즈 ICO 검증 테스트 추가
+
 ## [미출시]
 
 ### 추가 (SPEC-UI-001: Markdown Viewer MVP)

@@ -141,6 +141,30 @@ if ($SkipGoBuild) {
 } else {
     Write-Step "Building Go binary"
 
+    # goversioninfo 로 리소스 파일 생성
+    $versionJson = "cmd/winmdview/versioninfo.json"
+    $sysoFile = "cmd/winmdview/resource.syso"
+
+    if (Test-Path $versionJson) {
+        $null = Get-Command "goversioninfo" -ErrorAction SilentlyContinue
+        if ($?) {
+            Write-Info "Generating resource with goversioninfo..."
+            Push-Location "cmd/winmdview"
+            try {
+                goversioninfo -64 -o resource.syso versioninfo.json
+            } finally {
+                Pop-Location
+            }
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[ERROR] goversioninfo failed" -ForegroundColor Red
+                exit 1
+            }
+            Write-Success "Resource file generated: $sysoFile"
+        } else {
+            Write-Info "goversioninfo not found. Skipping resource embedding."
+        }
+    }
+
     $ldflags = "-s -w -H windowsgui"
     if ($Configuration -eq "Debug") {
         $ldflags = "-H windowsgui"
