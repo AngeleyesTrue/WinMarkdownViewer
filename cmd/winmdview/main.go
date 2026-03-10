@@ -58,6 +58,7 @@ var (
 	procDispatchMessageW         = user32.NewProc("DispatchMessageW")
 	procCreateIconFromResourceEx = user32.NewProc("CreateIconFromResourceEx")
 	procSendMessageW             = user32.NewProc("SendMessageW")
+	procDestroyIcon              = user32.NewProc("DestroyIcon")
 )
 
 // appFlags 는 CLI 플래그 파싱 결과를 담는 구조체이다.
@@ -823,16 +824,24 @@ func setWindowIcon(hwnd windows.HWND, iconData []byte) {
 	)
 
 	// 작은 아이콘 (16x16)
+	// @MX:WARN: [AUTO] WM_SETICON은 이전 아이콘 핸들을 반환한다. 이전 핸들만 DestroyIcon으로 해제한다.
+	// @MX:REASON: 새 아이콘은 윈도우가 사용 중이므로 즉시 해제하면 안 된다 (프로세스 종료 시 OS가 정리)
 	if idx := findBest(16); idx >= 0 {
 		if h := createIcon(entries[idx], 16); h != 0 {
-			procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconSmall, h)
+			prev, _, _ := procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconSmall, h)
+			if prev != 0 {
+				procDestroyIcon.Call(prev)
+			}
 		}
 	}
 
 	// 큰 아이콘 (32x32)
 	if idx := findBest(32); idx >= 0 {
 		if h := createIcon(entries[idx], 32); h != 0 {
-			procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconBig, h)
+			prev, _, _ := procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconBig, h)
+			if prev != 0 {
+				procDestroyIcon.Call(prev)
+			}
 		}
 	}
 }
