@@ -38,7 +38,8 @@
 | 리소스 임베딩 | Go embed | HTML/CSS/JS/폰트를 바이너리에 포함 |
 | 아이콘 | rsrc 또는 goversioninfo | Windows 실행 파일 아이콘/매니페스트 |
 | MSI 빌드 | WiX Toolset v4 (NuGet) | Windows Installer 패키지, Major Upgrade 패턴 |
-| 빌드 스크립트 | PowerShell 5.1+ | build-msi.ps1 (Go + WiX 통합 빌드) |
+| 빌드 스크립트 | PowerShell (build.ps1) | 릴리스/개발/테스트/클린 빌드 통합 |
+| MSI 빌드 스크립트 | PowerShell 5.1+ | build-msi.ps1 (Go + WiX 통합 빌드) |
 | CI/CD | GitHub Actions | v* 태그 → 자동 빌드 → Release 첨부 |
 
 ## 아키텍처 결정 사항
@@ -71,8 +72,21 @@
 
 ### 단일 인스턴스 패턴
 - Named Mutex로 이미 실행 중인 인스턴스 감지
-- Named Pipe로 새 파일 경로를 기존 인스턴스에 전달
-- 기존 인스턴스가 새 파일을 열어 표시
+- Named Pipe로 `OPEN:<filepath>` 명령을 기존 인스턴스에 전달
+- 기존 인스턴스가 새 윈도우에서 파일 열기 (기존 윈도우 유지)
+- 동일 파일 이미 열린 경우 해당 윈도우 포그라운드 활성화
+
+### 멀티 윈도우 아키텍처
+```
+[WindowManager]
+  ├── Window 1: [Server:port1] ←→ [Watcher] ←→ [WebView2]
+  ├── Window 2: [Server:port2] ←→ [Watcher] ←→ [WebView2]
+  └── Window N: [Server:portN] ←→ [Watcher] ←→ [WebView2]
+```
+- 각 윈도우가 독립적인 Server, Watcher, WebView2 인스턴스 소유
+- 윈도우별 포트 분리 (port 0 자동 할당)로 완전한 격리
+- WindowManager가 sync.RWMutex로 thread-safe하게 윈도우 추적
+- 윈도우 닫기 시 Watcher → Server → Viewer 순서로 리소스 정리
 
 ### 순수 Go 빌드
 - go-webview2는 CGO 불필요 (Windows COM API 직접 호출)

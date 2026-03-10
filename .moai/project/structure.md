@@ -4,9 +4,13 @@
 
 ```
 WinMarkdownViewer/
+├── build.ps1                              # PowerShell 빌드 스크립트 (릴리스/개발/테스트/클린)
 ├── cmd/
-│   └── winmdview/
-│       └── main.go              # 애플리케이션 진입점, 서버/감시 파이프라인
+│   ├── winmdview/
+│   │   └── main.go              # 애플리케이션 진입점, 서버/감시 파이프라인
+│   └── poc/
+│       └── multiwin/
+│           └── main.go          # 멀티 WebView2 인스턴스 PoC 검증
 ├── internal/
 │   ├── app/
 │   │   ├── app.go               # 파일 검증 및 렌더링 파이프라인
@@ -40,9 +44,15 @@ WinMarkdownViewer/
 │   ├── registry/
 │   │   ├── registry.go          # Windows 레지스트리 컨텍스트 메뉴 관리
 │   │   └── registry_test.go
-│   └── tray/
-│       ├── tray.go              # 시스템 트레이 관리
-│       └── tray_test.go
+│   ├── tray/
+│   │   ├── tray.go              # 시스템 트레이 관리
+│   │   └── tray_test.go
+│   └── window/
+│       ├── manager.go           # 멀티 윈도우 중앙 관리자 (생성/추적/정리)
+│       ├── manager_test.go
+│       ├── window.go            # 개별 윈도우 상태 (서버, 감시자, 뷰어)
+│       ├── window_test.go
+│       └── errors.go            # 윈도우 관련 오류 타입 정의
 ├── assets/
 │   ├── icon.ico                 # 트레이/컨텍스트 메뉴 아이콘 (16x16, 32x32)
 │   └── embed.go                 # 아이콘 리소스 임베딩
@@ -85,21 +95,23 @@ WinMarkdownViewer/
 ```
 cmd/winmdview/main.go
   ├── internal/app          # 앱 초기화, 렌더링 파이프라인, 단일 인스턴스, Pipe
-  │   ├── internal/viewer   # WebView2 창 (트레이 최소화/복원 지원)
-  │   ├── internal/server   # HTTP + WebSocket 서버 (정적 파일 서빙 포함)
-  │   ├── internal/watcher  # 파일 감시
-  │   └── internal/config   # 설정 관리
+  ├── internal/window       # 멀티 윈도우 관리 (WindowManager)
+  │   ├── internal/viewer   # WebView2 창
+  │   ├── internal/server   # HTTP + WebSocket 서버
+  │   └── internal/watcher  # 파일 감시
+  ├── internal/config       # 설정 관리
   ├── internal/registry     # Windows 레지스트리 컨텍스트 메뉴
-  ├── internal/tray         # 시스템 트레이
-  └── internal/markdown     # 마크다운 렌더링 (독립, goldmark + chroma)
+  ├── internal/tray         # 시스템 트레이 (동적 윈도우 목록)
+  └── internal/markdown     # 마크다운 렌더링
 ```
 
 ## 데이터 흐름
 
 ```
 1. 사용자가 .md 파일을 인자로 실행
+1-1. Named Mutex로 기존 인스턴스 확인 → 이미 실행 중이면 Named Pipe로 OPEN:{path} 전송 후 종료
 2. config.Load()로 사용자 설정 로드 (%APPDATA%\WinMarkdownViewer\config.json)
-3. 내장 HTTP 서버 시작 (localhost:랜덤포트)
+3. WindowManager가 윈도우별 독립 HTTP 서버 시작 (localhost:랜덤포트)
 4. goldmark으로 .md -> HTML 변환 (GFM + chroma 구문 강조)
 5. WebView2 창에서 http://localhost:{port} Navigate
 6. fsnotify로 파일 감시 시작
@@ -110,17 +122,15 @@ cmd/winmdview/main.go
 
 ## 빌드 명령어
 
-```bash
-# 개발 빌드
+```powershell
+# PowerShell 빌드 스크립트 (권장)
+.\build.ps1 build     # 릴리스 빌드 (-H windowsgui, 콘솔 숨김)
+.\build.ps1 dev       # 개발 빌드 (콘솔 창 표시)
+.\build.ps1 test      # 테스트 실행
+.\build.ps1 clean     # 빌드 산출물 정리
+
+# 수동 빌드
 go build -o winmdview.exe ./cmd/winmdview
-
-# 릴리스 빌드 (콘솔 숨김)
 go build -ldflags="-s -w -H windowsgui" -o winmdview.exe ./cmd/winmdview
-
-# 테스트
 go test ./...
-
-# 테스트 (커버리지)
-go test -coverprofile=coverage.out -covermode=atomic ./...
-go tool cover -func=coverage.out
 ```

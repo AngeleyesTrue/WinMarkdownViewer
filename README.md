@@ -18,7 +18,8 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 - **순수 Go**: CGO 없이 빌드 가능
 - **Windows 컨텍스트 메뉴**: .md 파일 우클릭 시 "마크다운 뷰어로 열기" 메뉴 등록 지원
 - **시스템 트레이**: 최소화 시 시스템 트레이로 이동, 트레이에서 복원/종료 지원
-- **단일 인스턴스**: 이미 실행 중이면 새 파일을 기존 인스턴스로 전달 (Named Pipe)
+- **단일 인스턴스**: 이미 실행 중이면 새 파일을 기존 인스턴스의 새 윈도우로 전달 (Named Pipe)
+- **멀티 윈도우**: 여러 .md 파일을 각각 별도 윈도우에서 동시에 열기 가능 (최대 10개)
 
 ## 설치
 
@@ -55,6 +56,20 @@ WebView2 Runtime이 설치되어 있지 않으면 설치 안내 메시지가 표
 ```
 git clone https://github.com/AngeleyesTrue/WinMarkdownViewer
 cd WinMarkdownViewer
+```
+
+PowerShell 빌드 스크립트 (권장):
+
+```powershell
+.\build.ps1 build     # 릴리스 빌드 (-H windowsgui, 콘솔 숨김)
+.\build.ps1 dev       # 개발 빌드 (콘솔 창 표시)
+.\build.ps1 test      # 테스트 실행
+.\build.ps1 clean     # 빌드 산출물 정리
+```
+
+수동 빌드:
+
+```
 go build -o winmdview.exe ./cmd/winmdview
 ```
 
@@ -147,16 +162,18 @@ winmdview.exe --set-default  # Open With 목록에 등록
 
 - 창을 최소화하면 태스크바에서 사라지고 시스템 트레이 아이콘으로 이동합니다.
 - 트레이 아이콘 더블클릭: 창 복원
-- 트레이 아이콘 우클릭: 컨텍스트 메뉴 (열기 / 종료)
+- 트레이 아이콘 우클릭: 컨텍스트 메뉴 (열린 윈도우 목록 / 종료)
 
 ### 단일 인스턴스
 
-두 번째 실행 시 새 창을 열지 않고, Named Pipe를 통해 파일 경로를 기존 실행 중인 인스턴스로 전달합니다. 기존 인스턴스가 해당 파일로 전환하고 전면에 표시됩니다.
+두 번째 실행 시 새 창을 열지 않고, Named Pipe를 통해 파일 경로를 기존 실행 중인 인스턴스로 전달합니다. 기존 인스턴스가 해당 파일을 새 윈도우에서 열고 전면에 표시됩니다. 이미 열려 있는 파일이면 해당 윈도우를 활성화합니다.
 
 ## 프로젝트 구조
 
 ```
+build.ps1                              PowerShell 빌드 스크립트 (릴리스/개발/테스트/클린)
 cmd/winmdview/main.go              진입점, CLI 파싱 및 서버/감시 파이프라인
+cmd/poc/multiwin/main.go           멀티 WebView2 인스턴스 PoC 검증
 internal/app/app.go                파일 검증 및 렌더링 파이프라인
 internal/config/config.go          사용자 설정 구조체 및 기본값
 internal/config/loader.go          설정 파일 읽기/쓰기
@@ -166,6 +183,9 @@ internal/server/server.go          내장 HTTP 서버 + WebSocket
 internal/viewer/viewer.go          WebView2 윈도우 관리
 internal/viewer/errors.go          오류 타입 정의
 internal/watcher/watcher.go        fsnotify 기반 파일 변경 감시
+internal/window/manager.go         멀티 윈도우 중앙 관리자 (생성/추적/정리)
+internal/window/window.go          개별 윈도우 상태 (서버, 감시자, 뷰어)
+internal/window/errors.go          윈도우 관련 오류 타입 정의
 internal/registry/registry.go      Windows 레지스트리 컨텍스트 메뉴 관리
 internal/app/instance.go           Named Mutex 단일 인스턴스 관리
 internal/app/pipe.go               Named Pipe 프로세스 간 통신

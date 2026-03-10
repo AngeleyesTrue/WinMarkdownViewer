@@ -65,7 +65,7 @@ func defaultWebViewFactory(cfg Config) (WebView, error) {
 			Title:  "WinMarkdownViewer",
 			Width:  uint(cfg.Width),
 			Height: uint(cfg.Height),
-			Center: true,
+			Center: false,
 		},
 	})
 	if w == nil {

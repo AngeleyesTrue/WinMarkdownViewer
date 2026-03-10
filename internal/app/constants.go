@@ -14,4 +14,7 @@ const (
 
 	// PipeTimeoutMs 는 파이프 연결/작업 타임아웃 (밀리초)이다.
 	PipeTimeoutMs = 5000
+
+	// PipeCommandOpen 은 파이프 프로토콜에서 파일 열기 명령 접두사이다.
+	PipeCommandOpen = "OPEN:"
 )
