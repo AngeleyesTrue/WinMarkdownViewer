@@ -44,17 +44,21 @@ function Invoke-Build {
         exit 1
     }
 
+    if (-not (Test-Path "dist")) {
+        New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+    }
+
     $ldflags = "-s -w -H windowsgui"
     Write-Info "ldflags: $ldflags"
 
-    go build -ldflags="$ldflags" -o "winmdview.exe" ./cmd/winmdview
+    go build -ldflags="$ldflags" -o "dist/winmdview.exe" ./cmd/winmdview
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] 빌드 실패" -ForegroundColor Red
         exit 1
     }
 
-    $size = (Get-Item "winmdview.exe").Length
-    Write-Success "winmdview.exe 빌드 완료 ($([math]::Round($size / 1MB, 2)) MB)"
+    $size = (Get-Item "dist/winmdview.exe").Length
+    Write-Success "dist/winmdview.exe 빌드 완료 ($([math]::Round($size / 1MB, 2)) MB)"
 }
 
 function Invoke-Dev {
@@ -65,16 +69,20 @@ function Invoke-Dev {
         exit 1
     }
 
+    if (-not (Test-Path "dist")) {
+        New-Item -ItemType Directory -Path "dist" -Force | Out-Null
+    }
+
     Write-Info "콘솔 창 표시 모드 (디버그용)"
 
-    go build -o "winmdview-dev.exe" ./cmd/winmdview
+    go build -o "dist/winmdview-dev.exe" ./cmd/winmdview
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] 개발 빌드 실패" -ForegroundColor Red
         exit 1
     }
 
-    $size = (Get-Item "winmdview-dev.exe").Length
-    Write-Success "winmdview-dev.exe 빌드 완료 ($([math]::Round($size / 1MB, 2)) MB)"
+    $size = (Get-Item "dist/winmdview-dev.exe").Length
+    Write-Success "dist/winmdview-dev.exe 빌드 완료 ($([math]::Round($size / 1MB, 2)) MB)"
 }
 
 function Invoke-Test {
@@ -97,7 +105,7 @@ function Invoke-Test {
 function Invoke-Clean {
     Write-Step "정리"
 
-    $targets = @("winmdview.exe", "winmdview-dev.exe", "coverage.out")
+    $targets = @("dist/winmdview.exe", "dist/winmdview-dev.exe", "winmdview.exe", "winmdview-dev.exe", "coverage.out")
 
     # *.out 파일도 정리 대상에 추가
     $outFiles = Get-ChildItem -Path "." -Filter "*.out" -File -ErrorAction SilentlyContinue
