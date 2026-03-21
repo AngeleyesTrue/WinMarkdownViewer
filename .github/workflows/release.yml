@@ -32,6 +32,9 @@ jobs:
       - name: Install WiX Toolset
         run: dotnet tool install --global wix
 
+      - name: Install goversioninfo
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+
       - name: Extract version from tag
         id: version
         shell: pwsh
