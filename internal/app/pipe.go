@@ -15,8 +15,6 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// @MX:NOTE: [AUTO] ListenPipe는 context 취소 시 CancelIoEx로 대기 중인 ConnectNamedPipe를 중단한다.
-
 // maxConsecutiveErrors 는 연속 에러 발생 시 최대 허용 횟수이다.
 const maxConsecutiveErrors = 10
 
