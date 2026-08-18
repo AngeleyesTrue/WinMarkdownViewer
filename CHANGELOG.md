@@ -7,7 +7,7 @@
 
 ## [1.0.4] - 2026-03-10
 
-### 추가 (SPEC-ICON-001: 애플리케이션 아이콘 개선)
+### 추가 (애플리케이션 아이콘 개선)
 
 - 멀티사이즈 아이콘 적용 (16, 32, 48, 64, 128, 256px)
 - goversioninfo로 exe에 Windows 리소스 아이콘 임베딩
@@ -18,7 +18,7 @@
 
 ## [미출시]
 
-### 추가 (SPEC-UI-001: Markdown Viewer MVP)
+### 추가 (Markdown Viewer MVP)
 
 - Go 모듈 초기화 (`github.com/AngeleyesTrue/WinMarkdownViewer`)
 - goldmark 기반 Markdown 렌더링 엔진 (`internal/markdown/renderer.go`)

@@ -3,7 +3,6 @@
 // "마크다운 뷰어로 열기" 컨텍스트 메뉴를 등록한다.
 // SystemFileAssociations를 사용하면 .md 파일의 기본 프로그램(VS Code 등)과 관계없이
 // 컨텍스트 메뉴가 항상 표시된다.
-// @MX:NOTE: [AUTO] HKLM은 절대 사용하지 않음 (REQ-N-001)
 package registry
 
 import (

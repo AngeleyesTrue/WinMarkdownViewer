@@ -63,8 +63,6 @@ func NewTray(iconData []byte) (*Tray, error) {
 }
 
 // Run 은 시스템 트레이를 시작한다.
-// @MX:WARN: [AUTO] systray.Run()은 블로킹 호출이므로 반드시 고루틴에서 실행해야 한다
-// @MX:REASON: 메인 스레드에서 호출하면 WebView2 이벤트 루프를 차단한다
 func (t *Tray) Run(onReady func(), onQuit func()) {
 	t.onQuit = onQuit
 
@@ -141,7 +139,6 @@ func (t *Tray) populateMenu() {
 
 // RefreshMenu 는 트레이 메뉴를 현재 윈도우 목록으로 재구성한다.
 // systray가 실행 중일 때만 동작한다.
-// @MX:NOTE: [AUTO] WindowManager의 OnWindowOpened/OnWindowClosed 콜백에서 호출한다
 func (t *Tray) RefreshMenu() {
 	if !t.running {
 		return
@@ -152,9 +149,6 @@ func (t *Tray) RefreshMenu() {
 }
 
 // Quit 은 시스템 트레이를 종료한다.
-// @MX:WARN: [AUTO] atomic.Bool CAS로 이중 호출을 방지한다. 트레이 메뉴 종료, systray.onExit,
-// main.go 등 여러 경로에서 호출될 수 있으므로 콜백은 정확히 한 번만 실행되어야 한다.
-// @MX:REASON: 이중 호출 시 zombie 트레이 아이콘 상태 또는 무한 재귀 발생
 func (t *Tray) Quit() {
 	if !t.quitting.CompareAndSwap(false, true) {
 		return

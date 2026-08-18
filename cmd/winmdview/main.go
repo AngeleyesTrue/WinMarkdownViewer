@@ -205,7 +205,6 @@ type windowEntry struct {
 }
 
 // windowTracker 는 활성 윈도우 ID -> viewer/HWND 매핑을 관리한다.
-// @MX:NOTE: [AUTO] 다중 윈도우 고루틴에서 안전하게 접근하기 위해 sync.Mutex로 보호한다
 type windowTracker struct {
 	mu      sync.Mutex
 	entries map[int]*windowEntry
@@ -235,8 +234,6 @@ func (t *windowTracker) add(windowID int, v *viewer.Viewer, hwnd windows.HWND) {
 
 // remove 는 윈도우를 비활성으로 표시하고 카운트를 감소시킨다.
 // 엔트리는 삭제하지 않는다 (Destroy는 앱 종료 시 일괄 처리).
-// @MX:NOTE: [AUTO] v.Destroy()를 개별 호출하면 go-webview2의 공유 Environment가
-// 해제되어 다른 윈도우가 응답 불가 상태가 된다. 앱 종료 시 destroyAll()에서 일괄 처리한다.
 func (t *windowTracker) remove(windowID int) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -284,9 +281,6 @@ func (t *windowTracker) wait() {
 
 // destroyAll 은 모든 viewer를 일괄 파괴한다.
 // 앱 종료 시 호출하여 WebView2 리소스를 정리한다.
-// @MX:NOTE: [AUTO] 개별 윈도우 닫기 시 Destroy()를 호출하면 go-webview2의 공유
-// ICoreWebView2Environment가 해제되어 남은 윈도우가 응답 불가 상태가 된다.
-// 따라서 모든 윈도우 고루틴이 종료된 후 일괄 파괴한다.
 func (t *windowTracker) destroyAll() {
 	t.mu.Lock()
 	entries := make([]*windowEntry, 0, len(t.entries))
@@ -317,8 +311,6 @@ type openWindowParams struct {
 
 // openWindow 는 WindowManager를 통해 서버/감시자를 생성하고,
 // 별도 고루틴에서 WebView2 윈도우를 실행한다.
-// @MX:ANCHOR: [AUTO] 다중 윈도우 생성의 핵심 함수. 각 윈도우를 독립 고루틴에서 실행한다
-// @MX:REASON: 고루틴별 runtime.LockOSThread + viewer.Run 블로킹 패턴 (fan_in >= 3)
 func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 	// 1. WindowManager로 서버/감시자 생성
 	windowID, err := params.wm.OpenFile(params.filePath)
@@ -333,8 +325,6 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 	}
 
 	// 3. 별도 고루틴에서 WebView2 윈도우 실행
-	// @MX:WARN: [AUTO] runtime.LockOSThread 필수 - WebView2는 COM 기반이므로 스레드 고정 필요
-	// @MX:REASON: go-webview2는 OS 스레드에 고정되어야 정상 동작한다 (PoC 검증 완료)
 	errCh := make(chan error, 1)
 	go func() {
 		runtime.LockOSThread()
@@ -370,10 +360,6 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 			log.Printf("윈도우 %d 리소스 정리 실패: %v", windowID, closeErr)
 		}
 
-		// @MX:WARN: [AUTO] 윈도우 닫힌 후에도 메시지 펌프를 유지해야 한다.
-		// @MX:REASON: WebView2의 COM 객체가 이 스레드의 Apartment에 바인딩되어 있어,
-		// 메시지 펌프가 멈추면 다른 WebView2 인스턴스의 크로스-스레드 COM 콜백이
-		// 블로킹되어 응답 불가 상태가 된다. 앱 종료까지 메시지를 펌핑한다.
 		if params.shutdownCh != nil {
 			pumpMessagesUntilShutdown(params.shutdownCh)
 		}
@@ -397,9 +383,6 @@ func openWindow(ctx context.Context, params openWindowParams) (int, error) {
 // pumpMessagesUntilShutdown 은 현재 OS 스레드에서 Windows 메시지를 계속 펌핑한다.
 // shutdownCh 가 닫힐 때까지 메시지 루프를 유지하여 COM STA 크로스-아파트먼트 호출을
 // 처리할 수 있도록 한다.
-// @MX:WARN: [AUTO] v.Run() 반환 후 반드시 호출해야 한다 - 메시지 펌프가 멈추면
-// WebView2 런타임의 크로스-스레드 COM 콜백이 블로킹되어 다른 윈도우가 응답 불가 상태가 된다
-// @MX:REASON: WebView2의 ICoreWebView2Environment는 생성 스레드의 COM Apartment에 바인딩된다
 func pumpMessagesUntilShutdown(shutdownCh <-chan struct{}) {
 	// 48바이트 = sizeof(MSG) on AMD64 Windows
 	var msg [48]byte
@@ -430,8 +413,6 @@ func main() {
 }
 
 // run 은 애플리케이션 로직을 실행하고 종료 코드를 반환한다.
-// @MX:ANCHOR: [AUTO] 애플리케이션의 메인 진입점으로 단일 인스턴스, 트레이, 다중 윈도우를 조율한다
-// @MX:REASON: 전체 앱 생명주기를 관리하는 핵심 함수 (fan_in >= 3)
 func run() int {
 	// 1. CLI 플래그 파싱
 	flags := parseFlags(os.Args[1:])
@@ -490,7 +471,6 @@ func run() int {
 	cfg.LastOpenedFile = absPath
 
 	// 7. WindowManager 생성 (서버/감시자 팩토리 주입)
-	// @MX:NOTE: [AUTO] ServerFactory와 WatcherFactory는 각 윈도우별 독립 서버/감시자를 생성한다
 	// lastCreatedServer 는 ServerFactory에서 생성한 서버를 WatcherFactory에 전달하는 클로저 변수이다.
 	// WindowManager.OpenFile()이 ServerFactory를 먼저 호출하고 WatcherFactory를 호출하므로 안전하다.
 	var lastCreatedServer *serverAdapter
@@ -587,7 +567,6 @@ func run() int {
 	}
 
 	// 12. Named Pipe 서버 시작 (다른 인스턴스로부터 파일 경로 수신)
-	// @MX:NOTE: [AUTO] 파이프 핸들러는 openWindow를 통해 새 윈도우를 생성하거나 기존 윈도우를 활성화한다
 	go func() {
 		if err := app.ListenPipe(ctx, func(newPath string) {
 			result := handlePipeMessage(wm, newPath, func(windowID int) {
@@ -711,7 +690,6 @@ func createServerForFile(filePath string, cfg *config.Config) (*serverAdapter, e
 }
 
 // createWatcherForFile 은 파일 감시자를 생성하고 변경 이벤트 시 서버로 브로드캐스트하는 고루틴을 시작한다.
-// @MX:NOTE: [AUTO] 각 윈도우별 독립적인 감시자와 재렌더링 고루틴을 생성한다
 func createWatcherForFile(filePath string, srvAdapter *serverAdapter) (window.Closeable, error) {
 	w, err := watcher.NewWatcher(filePath)
 	if err != nil {
@@ -824,8 +802,6 @@ func setWindowIcon(hwnd windows.HWND, iconData []byte) {
 	)
 
 	// 작은 아이콘 (16x16)
-	// @MX:WARN: [AUTO] WM_SETICON은 이전 아이콘 핸들을 반환한다. 이전 핸들만 DestroyIcon으로 해제한다.
-	// @MX:REASON: 새 아이콘은 윈도우가 사용 중이므로 즉시 해제하면 안 된다 (프로세스 종료 시 OS가 정리)
 	if idx := findBest(16); idx >= 0 {
 		if h := createIcon(entries[idx], 16); h != 0 {
 			prev, _, _ := procSendMessageW.Call(uintptr(hwnd), wmSetIcon, iconSmall, h)
@@ -853,8 +829,6 @@ func showWindow(hwnd windows.HWND) {
 }
 
 // subclassWindow 는 윈도우 프로시저를 서브클래싱하여 최소화 시 트레이로 숨기도록 한다.
-// @MX:WARN: [AUTO] Windows API 직접 호출 - unsafe.Pointer 사용
-// @MX:REASON: WebView2 윈도우의 WM_SYSCOMMAND/SC_MINIMIZE를 가로채야 한다
 func subclassWindow(hwnd windows.HWND, v *viewer.Viewer) {
 	// 기존 윈도우 프로시저를 저장할 변수
 	var origWndProc uintptr

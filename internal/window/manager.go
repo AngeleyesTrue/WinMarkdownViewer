@@ -78,8 +78,6 @@ func NewWindowManager(opts ...ManagerOption) *WindowManager {
 // OpenFile 은 파일을 새 윈도우에서 연다.
 // 이미 열린 파일이면 기존 윈도우 ID와 함께 ErrFileAlreadyOpen을 반환한다.
 // 최대 윈도우 수에 도달하면 ErrMaxWindowsReached를 반환한다.
-// @MX:ANCHOR: [AUTO] 윈도우 생성의 핵심 진입점으로 파일 검증, 중복 확인, 리소스 생성을 조율한다
-// @MX:REASON: 다중 윈도우 아키텍처의 핵심 함수 (fan_in >= 3)
 func (m *WindowManager) OpenFile(filePath string) (int, error) {
 	// 1. 절대 경로로 정규화
 	absPath, err := filepath.Abs(filePath)

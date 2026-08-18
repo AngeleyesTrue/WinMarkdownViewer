@@ -73,7 +73,6 @@ func (s *Server) Start() (int, error) {
 	mux.HandleFunc("/ws", s.handleWebSocket)
 
 	// 정적 파일 서빙: /static/ 경로로 임베디드 JS, CSS, 폰트 파일을 제공한다
-	// @MX:NOTE: [AUTO] embed.FS의 루트(".")에서 Sub를 생성하면 에러가 발생하지 않는다
 	staticFS, _ := fs.Sub(web.ExtensionAssets, ".")
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
