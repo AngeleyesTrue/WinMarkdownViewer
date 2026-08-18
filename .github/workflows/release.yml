@@ -47,8 +47,21 @@ jobs:
         shell: pwsh
         run: .\installer\build-msi.ps1 -Version "${{ steps.version.outputs.VERSION }}"
 
+      - name: Build portable archive
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $zipName = "WinMarkdownViewer_${version}_windows_amd64.zip"
+          Compress-Archive -Path "dist/winmdview.exe" -DestinationPath "dist/$zipName" -Force
+          Get-FileHash -Path "dist/$zipName" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $zipName" } |
+            Out-File -FilePath "dist/checksums.txt" -Encoding ascii -Append
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.msi
+          files: |
+            dist/*.msi
+            dist/*.zip
+            dist/checksums.txt
           generate_release_notes: true

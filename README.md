@@ -36,6 +36,26 @@ Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 
 
 제거 시 위 항목이 모두 자동으로 정리됩니다. 사용자 설정(`%APPDATA%\WinMarkdownViewer\`)은 보존됩니다.
 
+### 포터블 설치 (PowerShell)
+
+관리자 권한 없이 사용자 계정에만 설치합니다. PowerShell 7.x+:
+
+```powershell
+irm https://raw.githubusercontent.com/AngeleyesTrue/WinMarkdownViewer/main/install.ps1 | iex
+```
+
+`%LOCALAPPDATA%\Programs\WinMarkdownViewer\`에 설치되고 사용자 PATH에 등록됩니다. 설치 중 .md 우클릭 컨텍스트 메뉴 등록도 함께 진행됩니다(건너뛰려면 `-skip-register`).
+
+```powershell
+# 특정 버전 설치
+.\install.ps1 -version 1.0.5
+
+# 컨텍스트 메뉴 등록 건너뛰기
+.\install.ps1 -skip-register
+```
+
+제거하려면 `%LOCALAPPDATA%\Programs\WinMarkdownViewer\` 폴더를 지우고(선택) `winmdview --unregister`로 컨텍스트 메뉴를 정리합니다.
+
 ### MSI 빌드 (개발자)
 
 ```powershell
