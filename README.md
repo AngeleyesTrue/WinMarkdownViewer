@@ -1,5 +1,11 @@
 # WinMarkdownViewer
 
+[![CI](https://github.com/AngeleyesTrue/WinMarkdownViewer/actions/workflows/ci.yml/badge.svg)](https://github.com/AngeleyesTrue/WinMarkdownViewer/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/AngeleyesTrue/WinMarkdownViewer)](https://github.com/AngeleyesTrue/WinMarkdownViewer/releases/latest)
+[![License](https://img.shields.io/github/license/AngeleyesTrue/WinMarkdownViewer)](LICENSE)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/AngeleyesTrue/WinMarkdownViewer)](go.mod)
+[![Downloads](https://img.shields.io/github/downloads/AngeleyesTrue/WinMarkdownViewer/total)](https://github.com/AngeleyesTrue/WinMarkdownViewer/releases)
+
 Windows용 Markdown 뷰어. Go로 작성되었으며 Microsoft Edge WebView2를 통해 GitHub 스타일로 Markdown 파일을 렌더링합니다.
 
 ## 기능
