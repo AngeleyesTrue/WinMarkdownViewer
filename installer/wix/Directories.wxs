@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Directories.wxs - 설치 디렉터리 구조 정의
+  ProgramFiles 아래 WinMarkdownViewer 폴더와 시작 메뉴 폴더를 정의한다.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="WinMarkdownViewer" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuDir" Name="WinMarkdownViewer" />
+    </StandardDirectory>
+  </Fragment>
+</Wix>

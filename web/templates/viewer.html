@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="{{.Theme}}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline' http://127.0.0.1:* http://localhost:*; img-src data: https:; connect-src ws://127.0.0.1:* ws://localhost:*; script-src 'unsafe-inline' http://127.0.0.1:* http://localhost:*; font-src http://127.0.0.1:* http://localhost:*;">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/katex.min.css">
+    <style>
+        {{.CSS}}
+        body {
+            box-sizing: border-box;
+            min-width: 200px;
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 45px;
+            font-size: {{.FontSize}}px;
+        }
+        /* KaTeX 렌더링 오류 표시 스타일 */
+        .katex-error {
+            color: #cc0000;
+            cursor: help;
+            border-bottom: 1px dashed #cc0000;
+        }
+        /* Mermaid 다이어그램 블록 스타일 */
+        .mermaid {
+            text-align: center;
+            margin: 1em 0;
+        }
+    </style>
+    <link rel="stylesheet" href="/static/css/theme-light.css">
+    <link rel="stylesheet" href="/static/css/theme-dark.css">
+    <link rel="stylesheet" href="/static/css/syntax-light.css">
+    <link rel="stylesheet" href="/static/css/syntax-dark.css">
+</head>
+<body>
+    <button id="theme-toggle" title="System" style="position:fixed;top:12px;right:12px;z-index:1000;background:var(--color-canvas-subtle,#f6f8fa);border:1px solid var(--color-border-default,#d0d7de);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;color:var(--color-fg-default,#1f2328);transition:background-color 0.25s ease,border-color 0.25s ease,color 0.25s ease;">&#x1F5A5;</button>
+    <article id="content" class="markdown-body">
+        {{.Content}}
+    </article>
+    <script src="/static/js/katex.min.js"></script>
+    <script src="/static/js/mermaid.min.js"></script>
+    <script src="/static/js/render-extensions.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script>
+    (function() {
+        var reconnectDelay = 1000;
+        var maxReconnectDelay = 30000;
+        var ws = null;
+
+        function connect() {
+            ws = new WebSocket('ws://' + location.host + '/ws');
+
+            ws.onopen = function() {
+                reconnectDelay = 1000;
+                // 테마 모듈이 WebSocket을 통해 서버에 메시지를 보낼 수 있도록 노출한다
+                window._wsSend = function(data) {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(data);
+                    }
+                };
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    var msg = JSON.parse(event.data);
+                    if (msg.type === 'update') {
+                        var savedScrollY = window.scrollY;
+                        document.getElementById('content').innerHTML = msg.html;
+                        window.scrollTo(0, savedScrollY);
+                        // 수학 수식과 다이어그램을 다시 렌더링한다
+                        if (typeof window.renderExtensions === 'function') {
+                            window.renderExtensions();
+                        }
+                    }
+                } catch(e) {}
+            };
+
+            ws.onclose = function() {
+                ws = null;
+                setTimeout(function() {
+                    reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+                    connect();
+                }, reconnectDelay);
+            };
+
+            ws.onerror = function() {
+                if (ws) ws.close();
+            };
+        }
+
+        connect();
+    })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build MSI and Create Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install WiX Toolset
+        # Pinned to v6: v7+ requires accepting the Open Source Maintenance Fee
+        # EULA (https://docs.firegiant.com/wix/osmf/), which isn't yet wired
+        # into this non-interactive pipeline.
+        run: dotnet tool install --global wix --version 6.0.2
+
+      - name: Install goversioninfo
+        run: go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Building version: $version"
+
+      - name: Build MSI installer
+        shell: pwsh
+        run: .\installer\build-msi.ps1 -Version "${{ steps.version.outputs.VERSION }}"
+
+      - name: Build portable archive
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.VERSION }}"
+          $zipName = "WinMarkdownViewer_${version}_windows_amd64.zip"
+          Compress-Archive -Path "dist/winmdview.exe" -DestinationPath "dist/$zipName" -Force
+          Get-FileHash -Path "dist/$zipName" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $zipName" } |
+            Out-File -FilePath "dist/checksums.txt" -Encoding ascii -Append
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.msi
+            dist/*.zip
+            dist/checksums.txt
+          generate_release_notes: true

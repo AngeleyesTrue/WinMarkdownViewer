@@ -1,0 +1,39 @@
+/* theme-dark.css - 다크 테마 CSS Custom Properties */
+/* GitHub 다크 테마 디자인 시스템 색상값 기반 */
+
+html[data-theme="dark"] {
+  --color-canvas-default: #0d1117;
+  --color-canvas-subtle: #161b22;
+  --color-fg-default: #e6edf3;
+  --color-fg-muted: #8d96a0;
+  --color-accent-fg: #4493f8;
+  --color-border-default: #30363d;
+  --color-border-muted: #21262d;
+  --color-neutral-muted: rgba(110, 118, 129, 0.4);
+}
+
+/* 시스템 테마: OS가 다크 모드를 선호할 때 다크 변수 적용 */
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] {
+    --color-canvas-default: #0d1117;
+    --color-canvas-subtle: #161b22;
+    --color-fg-default: #e6edf3;
+    --color-fg-muted: #8d96a0;
+    --color-accent-fg: #4493f8;
+    --color-border-default: #30363d;
+    --color-border-muted: #21262d;
+    --color-neutral-muted: rgba(110, 118, 129, 0.4);
+  }
+}
+
+html[data-theme="dark"] body {
+  background-color: var(--color-canvas-default);
+  color: var(--color-fg-default);
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-theme="system"] body {
+    background-color: var(--color-canvas-default);
+    color: var(--color-fg-default);
+  }
+}
